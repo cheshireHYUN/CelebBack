@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:c="http://www.springframework.org/schema/c"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd">
+
+<!-- 	<bean id="transactionManager" class="org.springframework.batch.support.transaction.ResourcelessTransactionManager" /> -->
+
+<!-- 	<bean id="jobRepository" class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean"  -->
+<!-- 		p:transactionManager-ref="transactionManager" -->
+<!-- 	/> -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager" 
+		p:dataSource-ref="dataSource"
+	/>
+	<bean id="jobRepository" class="org.springframework.batch.core.repository.support.JobRepositoryFactoryBean" 
+		p:dataSource-ref="dataSource"
+		p:transactionManager-ref="transactionManager"
+	/>
+	<bean id="jobLauncher" class="org.springframework.batch.core.launch.support.SimpleJobLauncher" 
+		p:jobRepository-ref="jobRepository"
+	/>
+	
+	<bean id="jobExplorer" class="org.springframework.batch.core.explore.support.JobExplorerFactoryBean" 
+		p:dataSource-ref="dataSource"
+		p:tablePrefix="BATCH_"
+	/>
+	<bean id="jobRegistry" class="org.springframework.batch.core.configuration.support.MapJobRegistry" />
+	
+	<bean class="org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor" 
+		p:jobRegistry-ref="jobRegistry"
+	/>
+	
+	<bean id="jobOperator" class="org.springframework.batch.core.launch.support.SimpleJobOperator" 
+		p:jobRepository-ref="jobRepository"
+		p:jobLauncher-ref="jobLauncher"
+		p:jobExplorer-ref="jobExplorer"
+		p:jobRegistry-ref="jobRegistry"
+	/>
+	
+	<bean id="frRepairServiceImpl" class="com.celebback.head.frRepair.service.frRepairServiceImpl" /> 
+	<bean id="tasklet" class="org.springframework.batch.core.step.tasklet.MethodInvokingTaskletAdapter" 
+		p:targetObject-ref="frRepairServiceImpl"
+		p:targetMethod="backupProcess"
+	/>
+	
+	<batch:job id="abc">
+		<batch:listeners>
+			<batch:listener>
+				<bean class="com.celebback.batch.JobCompletionNotificationListener"/>
+			</batch:listener>
+		</batch:listeners>
+		<batch:step id="previouStep" >
+			<batch:tasklet ref="tasklet" />
+		</batch:step>
+	</batch:job>
+</beans>
+
+
+
+
+
+
+
+
+
+
+
+

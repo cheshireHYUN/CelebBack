@@ -1,0 +1,847 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.frPayment.dao.FrPaymentDAO">
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'franName'">
+				       			INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0 <!-- JAVA의 indexOf와 같음 --><!-- LIKE는 퍼포먼스가 떨어짐 --> 
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'franId'">
+				       			INSTR(FRAN_ID,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'ownerId'">
+				       			INSTR(OWNER_ID,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(FRAN_ID,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(OWNER_ID,#{simpleCondition.searchWord}) > 0
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+</sql>
+
+<sql id="searchSales">
+WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'franId'">
+				       			FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where FRAN_ID=#{simpleCondition.searchWord})
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'franName'">
+				       			FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0)
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'ownerId'">
+				       			FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where OWNER_ID=#{simpleCondition.searchWord})
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where FRAN_ID=#{simpleCondition.searchWord})
+					       			  OR
+					       			 FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0)
+					       			  OR
+					       			  FRAN_ID= (select fran_id
+		                                    from fran
+		                                   where OWNER_ID=#{simpleCondition.searchWord})
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+</sql>
+
+<!-- 가맹비 미납 가맹점 조회 -->
+<select id="selectFrPaymentList" parameterType="PagingVO" resultType="FeeVO">
+    SELECT ROWNUM RNUM, LIST2.*
+      FROM(
+			SELECT LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+				  ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+				  ,SUM(FEE_COST) AS FEE_COST
+			  FROM(
+					 SELECT DISTINCT A.FRAN_ID
+                            ,(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS OWNER_ID
+					        ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS FRAN_NAME
+					        ,(SELECT OWNER_NAME FROM OWNER B INNER JOIN FRAN C ON (C.OWNER_ID = B.OWNER_ID) WHERE C.FRAN_ID=A.FRAN_ID) AS OWNER_NAME
+                            ,(SELECT B.FEE_COST FROM DUAL WHERE A.FRAN_ID = B.FRAN_ID ) AS FEE_COST
+					        ,(SELECT COUNT(*) FROM FEE WHERE FEE_OVERDUE !=0 AND FRAN_ID = A.FRAN_ID) AS FEE_OVERDUE
+					        ,TO_CHAR((SELECT FEEPAY_DATE
+							            FROM FEEPAY
+							           WHERE FEE_ID=(SELECT MAX(FEE_ID) FROM FEE WHERE FEE.FEE_OVERDUE=0)),'YYYY.MM.DD') AS FEE_DATE
+  					   FROM FEE A,
+	                       (SELECT FRAN_ID, SUM(FEE_FRUSE)+SUM(FEE_ROYAL)+SUM(FEE_COST)-SUM(FEE_TPLUS)+SUM(FEE_TMINUS)+SUM(FEE_OVERDUE)+SUM(FEE_CPN) AS FEE_COST
+	                          FROM FEE
+	                         GROUP BY FRAN_ID) B
+					  WHERE FEE_OVERDUE !=0
+			  )LIST
+			  <include refid="searchFrag"/>
+            GROUP BY  LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+				     ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+            )LIST2
+</select>
+
+<!-- 가맹비 미납 목록 페이징 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM(
+	    SELECT ROWNUM RNUM, LIST2.*
+	      FROM(
+				SELECT LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+					  ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+					  ,SUM(FEE_COST) AS FEE_COST
+				  FROM(
+						 SELECT DISTINCT A.FRAN_ID
+	                            ,(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS OWNER_ID
+						        ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS FRAN_NAME
+						        ,(SELECT OWNER_NAME FROM OWNER B INNER JOIN FRAN C ON (C.OWNER_ID = B.OWNER_ID) WHERE C.FRAN_ID=A.FRAN_ID) AS OWNER_NAME
+	                            ,(SELECT B.FEE_COST FROM DUAL WHERE A.FRAN_ID = B.FRAN_ID ) AS FEE_COST
+						        ,(SELECT COUNT(*) FROM FEE WHERE FEE_OVERDUE !=0 AND FRAN_ID = A.FRAN_ID) AS FEE_OVERDUE
+						        ,TO_CHAR((SELECT FEEPAY_DATE
+								            FROM FEEPAY
+								           WHERE FEE_ID=(SELECT MAX(FEE_ID) FROM FEE WHERE FEE.FEE_OVERDUE=0)),'YYYY.MM.DD') AS FEE_DATE
+	  					   FROM FEE A,
+	                       	   (SELECT FRAN_ID, SUM(FEE_FRUSE)+SUM(FEE_ROYAL)+SUM(FEE_COST)+SUM(FEE_TPLUS)+SUM(FEE_TMINUS)+SUM(FEE_OVERDUE)+SUM(FEE_CPN) AS FEE_COST
+		                          FROM FEE
+		                         GROUP BY FRAN_ID) B
+						  WHERE FEE_OVERDUE !=0
+				  )LIST
+				  <include refid="searchFrag"/>
+	            GROUP BY  LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+				 		 ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+	            )LIST2
+	       )
+</select>
+
+<!-- 미납 내역 상세 조회 -->
+<select id="selectDetailFaymentList" parameterType="String" resultType="FeeVO">
+	SELECT *
+	  FROM (
+			SELECT ROWNUM RNUM, A.*
+			 FROM(
+					SELECT  FRAN_ID
+					       ,A.FEE_ID
+					       ,FEE_FRUSE+FEE_ROYAL+A.FEE_COST+FEE_TPLUS+FEE_TMINUS+FEE_OVERDUE+FEE_CPN AS FEE_COST
+					       ,TO_CHAR(FEE_SDATE,'YYYY-MM-DD') AS FEE_SDATE 
+					  FROM FEE A
+					 WHERE A.FEE_ID NOT IN (SELECT FEE_ID FROM FEEPAY)
+					   AND FRAN_ID=#{franId}
+				  )A
+	   )
+</select>
+
+<!-- 미납 공문 발송 -->
+<insert id="sendPaper" parameterType="PaperVO">
+		<selectKey resultType="int" keyProperty="paperSn" order="BEFORE">
+			SELECT NVL(MAX(TO_NUMBER(PAPER_SN))+1,1) FROM FRPAPER
+		</selectKey>
+	INSERT ALL
+		<foreach collection="ownerIdList" item="ownerId" index="idx">
+			INTO frpaper (
+			     PAPER_SN
+			    ,PAPER_ID
+			    ,OWNER_ID
+			) VALUES (
+				 #{paperSn} + #{idx}
+				,'PA005'
+				,#{ownerId}
+			)
+		</foreach>
+		SELECT * FROM DUAL
+</insert>
+
+<!-- 가맹점 매출 분석 - 조회 -->
+<select id="selectFrSales" parameterType="ProfitVO" resultType="ProfitVO">
+ SELECT A.FRAN_ID
+		,(SELECT FRAN_NAME FROM FRAN WHERE A.FRAN_ID = FRAN_ID) AS FRAN_NAME
+        ,TO_NUMBER((SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)) AS empCost
+        ,TO_NUMBER(SUM(FEE_FRUSE)) AS franCost
+        ,TO_NUMBER(SUM(FEE_ROYAL)) AS shareCost
+        ,TO_NUMBER(SUM(FEE_COST)) AS primeCost
+        ,TO_NUMBER((SELECT SUM(MORDER_PRICE)
+            		  FROM MORDER C
+          			 <include refid="searchSales"/>)) AS totalSale
+        ,TO_NUMBER((SELECT SUM(TOTAL_COST)+SUM(FEE_TPLUS)-SUM(FEE_TMINUS)
+          			  FROM(
+			                SELECT A.BUYERPROD_ID, FRANIN_QTY
+			                      ,(SELECT DISTINCT HEADIN_RELEASE FROM HEADIN WHERE A.BUYERPROD_ID = BUYERPROD_ID) * FRANIN_QTY AS TOTAL_COST
+			                  FROM FRANIN A
+			                <include refid="searchSales"/>
+						       AND SUBSTR(TO_CHAR(FRANIN_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FRANIN_DATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+               				)
+		                    ,(SELECT B.FEE_TPLUS
+		                        FROM FEE B
+		                        <include refid="searchSales"/> 
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+		                        )
+		                    ,(SELECT B.FEE_TMINUS
+		                        FROM FEE B
+		                         <include refid="searchSales"/>
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+		                        )
+               		
+               		)) AS totalPrime
+        , TO_NUMBER((SELECT SUM(MORDER_PRICE)
+             		   FROM MORDER C
+           			 <include refid="searchSales"/>)
+           -
+           (
+	           (SELECT SUM(MORDER_PRICE)
+	              FROM MORDER C
+	             <include refid="searchSales"/>)
+	           +
+	           (SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)
+	           +
+	           SUM(FEE_FRUSE)
+	           +
+	           SUM(FEE_ROYAL)
+	           +
+	           SUM(FEE_CPN)
+           )) AS busiProf
+        ,
+        (TO_NUMBER((SELECT SUM(MORDER_PRICE)
+             		   FROM MORDER C
+           			 <include refid="searchSales"/>)
+           -
+           (
+	           (SELECT SUM(MORDER_PRICE)
+	              FROM MORDER C
+	             <include refid="searchSales"/>)
+	           +
+	           (SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)
+	           +
+	           SUM(FEE_FRUSE)
+	           +
+	           SUM(FEE_ROYAL)
+	           +
+	           SUM(FEE_CPN)
+           ))
+           -
+         TO_NUMBER((SELECT BILL_COST
+             		   FROM BILL
+             		<include refid="searchSales"/>
+					    AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+<!--             			AND BILL_LGU='공과금' -->
+            			)
+               			)
+               			) AS currentProf
+    FROM FEE A
+   <include refid="searchSales"/>
+     AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+	 AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+   GROUP BY A.FRAN_ID
+</select>
+
+<!-- (본사)가맹점 매출 분석 - 차트조회 -->
+<select id="selectChart" parameterType="ProfitVO" resultType="hashMap">
+	SELECT DISTINCT FRAN_ID AS "franId"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+				 AND TO_CHAR(MORDER_DATE,'MM') ='01'),0) as "month1"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='02'),0) as "month2"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='03'),0) as "month3"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='04'),0) as "month4"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='05'),0) as "month5"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='06'),0) as "month6"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='07'),0) as "month7"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			    AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                AND TO_CHAR(MORDER_DATE,'MM') ='08'),0) as "month8"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='09'),0) as "month9"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='10'),0) as "month10"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='11'),0) as "month11"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='12'),0) as "month12"
+      FROM MORDER
+			   <include refid="searchSales"/>
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+</select>
+
+<!-- (가맹점주)매출 분석 - 차트조회 -->
+<select id="selectOwnerChart" parameterType="ProfitVO" resultType="hashMap">
+	SELECT DISTINCT FRAN_ID AS "franId"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+				 AND TO_CHAR(MORDER_DATE,'MM') ='01'),0) as "month1"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='02'),0) as "month2"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='03'),0) as "month3"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='04'),0) as "month4"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='05'),0) as "month5"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='06'),0) as "month6"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='07'),0) as "month7"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			    AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                AND TO_CHAR(MORDER_DATE,'MM') ='08'),0) as "month8"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='09'),0) as "month9"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='10'),0) as "month10"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='11'),0) as "month11"
+		  ,NVL((SELECT SUM(MORDER_PRICE)/10000
+                  FROM MORDER
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+                 AND TO_CHAR(MORDER_DATE,'MM') ='12'),0) as "month12"
+      FROM MORDER
+			   WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+			     AND SUBSTR(TO_CHAR(MORDER_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate} 
+</select>
+
+<!-- 가맹점 매출 분석 - 조회 -->
+<select id="selectOwnerSales" parameterType="ProfitVO" resultType="ProfitVO">
+SELECT A.FRAN_ID
+		,(SELECT FRAN_NAME FROM FRAN WHERE A.FRAN_ID = FRAN_ID) AS FRAN_NAME
+        ,TO_NUMBER((SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)) AS empCost
+        ,TO_NUMBER(SUM(FEE_FRUSE)) AS franCost
+        ,TO_NUMBER(SUM(FEE_ROYAL)) AS shareCost
+        ,TO_NUMBER(SUM(FEE_COST)) AS primeCost
+        ,TO_NUMBER((SELECT SUM(MORDER_PRICE)
+            		  FROM MORDER C
+			   		 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord}))) AS totalSale
+        ,TO_NUMBER((SELECT SUM(TOTAL_COST)+SUM(FEE_TPLUS)-SUM(FEE_TMINUS)
+          			  FROM(
+			                SELECT A.BUYERPROD_ID, FRANIN_QTY
+			                      ,(SELECT DISTINCT HEADIN_RELEASE FROM HEADIN WHERE A.BUYERPROD_ID = BUYERPROD_ID) * FRANIN_QTY AS TOTAL_COST
+			                  FROM FRANIN A
+			   	 			 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+						       AND SUBSTR(TO_CHAR(FRANIN_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FRANIN_DATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+               				)
+		                    ,(SELECT B.FEE_TPLUS
+		                        FROM FEE B
+			   	 			 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+		                        )
+		                    ,(SELECT B.FEE_TMINUS
+		                        FROM FEE B
+			   	 			 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						       AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+		                        )
+               		
+               		)) AS totalPrime
+        , TO_NUMBER((SELECT SUM(MORDER_PRICE)
+             		   FROM MORDER C
+			   	 	  WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord}))
+           -
+           (
+	           (SELECT SUM(MORDER_PRICE)
+	              FROM MORDER C
+			   	 WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord}))
+	           +
+	           (SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)
+	           +
+	           SUM(FEE_FRUSE)
+	           +
+	           SUM(FEE_ROYAL)
+	           +
+	           SUM(FEE_CPN)
+           )) AS busiProf
+        ,
+        (TO_NUMBER((SELECT SUM(MORDER_PRICE)
+             		   FROM MORDER C
+			   	 	  WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord}))
+           -
+           (
+	           (SELECT SUM(MORDER_PRICE)
+	              FROM MORDER C
+			     WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord}))
+	           +
+	           (SELECT SUM(FRANEMP_SALARY) FROM FRANEMP WHERE A.FRAN_ID = FRAN_ID)
+	           +
+	           SUM(FEE_FRUSE)
+	           +
+	           SUM(FEE_ROYAL)
+	           +
+	           SUM(FEE_CPN)
+           ))
+           -
+         TO_NUMBER((SELECT BILL_COST
+             		   FROM BILL
+			   	 	  WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+					    AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+						AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+<!--             			AND BILL_LGU='공과금' -->
+            			)
+               			)
+               			) AS currentProf
+    FROM FEE A
+   WHERE FRAN_ID=(SELECT FRAN_ID FROM FRAN WHERE OWNER_ID=#{simpleCondition.searchWord})
+     AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),0,4) = #{simpleCondition.searchStartDate}
+	 AND SUBSTR(TO_CHAR(FEE_SDATE,'YYYYMMDD'),5,2) = #{simpleCondition.searchEndDate}
+   GROUP BY A.FRAN_ID
+</select>
+
+
+
+<!-- 가맹점주명 단순 조회 -->
+<select id="selectFranName" resultType="hashmap">
+	SELECT FRAN_ID "franId", FRAN_NAME "franName"
+  	  FROM FRAN
+</select>
+
+
+
+
+<!-- 이하 9/2 서재원 추가 -->
+<!-- 대시보드 최신 5개 출력용 -->
+<select id="selectFrPaymentListDashboard" resultType="FeeVO">
+SELECT DASH.* 
+  FROM(
+        SELECT ROWNUM RNUM, LIST2.*
+          FROM(
+                SELECT LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+                      ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+                      ,SUM(FEE_COST) AS FEE_COST
+                  FROM(
+                         SELECT DISTINCT A.FRAN_ID
+                                ,(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS OWNER_ID
+                                ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS FRAN_NAME
+                                ,(SELECT OWNER_NAME FROM OWNER B INNER JOIN FRAN C ON (C.OWNER_ID = B.OWNER_ID) WHERE C.FRAN_ID=A.FRAN_ID) AS OWNER_NAME
+                                ,(SELECT B.FEE_COST FROM DUAL WHERE A.FRAN_ID = B.FRAN_ID ) AS FEE_COST
+                                ,(SELECT COUNT(*) FROM FEE WHERE FEE_OVERDUE !=0 AND FRAN_ID = A.FRAN_ID) AS FEE_OVERDUE
+                                ,TO_CHAR((SELECT FEEPAY_DATE
+                                            FROM FEEPAY
+                                           WHERE FEE_ID=(SELECT MAX(FEE_ID) FROM FEE WHERE FEE.FEE_OVERDUE=0)),'YYYY.MM.DD') AS FEE_DATE
+                           FROM FEE A,
+                               (SELECT FRAN_ID, SUM(FEE_FRUSE)+SUM(FEE_ROYAL)+SUM(FEE_COST)-SUM(FEE_TPLUS)+SUM(FEE_TMINUS)+SUM(FEE_OVERDUE)+SUM(FEE_CPN) AS FEE_COST
+                                  FROM FEE
+                                 GROUP BY FRAN_ID) B
+                          WHERE FEE_OVERDUE !=0
+                  )LIST
+                GROUP BY  LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+                         ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+                )LIST2
+            )DASH
+	<![CDATA[
+    WHERE RNUM >=1 AND RNUM <=5
+    ]]>
+</select>
+
+<select id="selectFrPaymentListCountDashboard" resultType="int">
+	SELECT COUNT(*)
+	  FROM(
+	    SELECT ROWNUM RNUM, LIST2.*
+	      FROM(
+				SELECT LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+					  ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+					  ,SUM(FEE_COST) AS FEE_COST
+				  FROM(
+						 SELECT DISTINCT A.FRAN_ID
+	                            ,(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS OWNER_ID
+						        ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=A.FRAN_ID) AS FRAN_NAME
+						        ,(SELECT OWNER_NAME FROM OWNER B INNER JOIN FRAN C ON (C.OWNER_ID = B.OWNER_ID) WHERE C.FRAN_ID=A.FRAN_ID) AS OWNER_NAME
+	                            ,(SELECT B.FEE_COST FROM DUAL WHERE A.FRAN_ID = B.FRAN_ID ) AS FEE_COST
+						        ,(SELECT COUNT(*) FROM FEE WHERE FEE_OVERDUE !=0 AND FRAN_ID = A.FRAN_ID) AS FEE_OVERDUE
+						        ,TO_CHAR((SELECT FEEPAY_DATE
+								            FROM FEEPAY
+								           WHERE FEE_ID=(SELECT MAX(FEE_ID) FROM FEE WHERE FEE.FEE_OVERDUE=0)),'YYYY.MM.DD') AS FEE_DATE
+	  					   FROM FEE A,
+	                       	   (SELECT FRAN_ID, SUM(FEE_FRUSE)+SUM(FEE_ROYAL)+SUM(FEE_COST)+SUM(FEE_TPLUS)+SUM(FEE_TMINUS)+SUM(FEE_OVERDUE)+SUM(FEE_CPN) AS FEE_COST
+		                          FROM FEE
+		                         GROUP BY FRAN_ID) B
+						  WHERE FEE_OVERDUE !=0
+				  )LIST
+	            GROUP BY  LIST.FRAN_ID			,LIST.FRAN_NAME			,LIST.OWNER_NAME
+				 		 ,LIST.FEE_OVERDUE		,LIST.FEE_DATE			,LIST.OWNER_ID
+	            )LIST2
+	       )
+</select>
+
+<!-- 전체 음식 판매(매출) 순위 -->
+<select id="selectWholeFLank" resultType="hashmap">	
+<![CDATA[
+	SELECT U.RNK, nvl((SELECT MENU_NAME FROM MENU WHERE MENU_ID = U.MENU_ID),'존재하지않는메뉴명') MENU_NAME
+             , U.SUM_QTY
+        FROM
+        (
+        SELECT ROW_NUMBER() OVER (ORDER BY T.SUM_QTY DESC) RNK, t.menu_id, T.SUM_QTY
+        FROM
+        (
+            SELECT MENU_ID
+                 , SUM(MORDER_PRICE * MORDER_QTY) SUM_QTY
+            FROM   MORDER
+            GROUP BY MENU_ID
+            ORDER BY 1, SUM(MORDER_PRICE * MORDER_QTY) DESC 
+        ) T
+    ) U
+    WHERE U.RNK <= 5
+
+]]>
+<!-- 	SELECT * -->
+<!-- 	  FROM( -->
+<!-- 			SELECT ROWNUM RNUM, LIST.* -->
+<!-- 			  FROM( -->
+<!-- 					SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') AS "menuName" -->
+<!-- 					      ,COUNT(MENU_ID) AS "menuCnt" -->
+<!-- 					  FROM MORDER A -->
+<!-- 					 GROUP BY MENU_ID -->
+<!-- 					 ORDER BY COUNT(MENU_ID) DESC)LIST -->
+<!-- 			 	  ) -->
+<!--  WHERE RNUM<6 -->
+</select>
+
+<!-- 지역별 음식 판매 순위 (더미데이터 추가 후에 보완) -->
+<select id="selectLocaFLank" resultType="hashmap">
+	SELECT nvl((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') as "menuName"
+	      ,COUNT(MENU_ID) AS "menuCnt"
+	      ,(SELECT LGU_NAME FROM LGU WHERE LGU_ID=B.FRAN_LOCA) AS "franLoca"
+	  FROM MORDER A INNER JOIN FRAN B ON (B.FRAN_ID=A.FRAN_ID)
+	 GROUP BY MENU_ID,B.FRAN_LOCA
+	 ORDER BY COUNT(MENU_ID) DESC
+</select>
+
+<!-- 시즌별 음식 판매 순위 firstQuarter -->
+<select id="selectSeasonFLank1" resultType="hashmap">
+<![CDATA[
+SELECT TO_NUMBER(RNK) AS RNK, MENUNAME, THUMB_IMG
+	FROM(
+		SELECT ROW_NUMBER() OVER (ORDER BY menuCnt desc) RNK, MENUNAME, menuCnt,menu_id
+		FROM (SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') AS MENUNAME, count(menu_id) as menuCnt,menu_id
+			    FROM MORDER A
+			   WHERE 1=1
+			   AND (TO_CHAR(MORDER_DATE,'MM') ='01' 
+			   OR TO_CHAR(MORDER_DATE,'MM') ='02'
+			   OR TO_CHAR(MORDER_DATE,'MM') ='03')
+			   GROUP BY MENU_ID
+			   ORDER BY COUNT(A.MORDER_QTY) DESC)
+		  )LIST INNER JOIN ATTATCH B ON(LIST.MENU_ID = B.TABLE_PK)
+		where rnk<6
+        order by rnk asc
+]]> 
+</select>
+
+<!-- 시즌별 음식 판매 순위 secondQuarter -->
+<select id="selectSeasonFLank2" resultType="hashmap">
+<![CDATA[
+SELECT TO_NUMBER(RNK) AS RNK, MENUNAME, THUMB_IMG
+	FROM(
+		SELECT ROW_NUMBER() OVER (ORDER BY menuCnt desc) RNK, MENUNAME, menuCnt,menu_id
+		FROM (SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') AS MENUNAME, count(menu_id) as menuCnt,menu_id
+			    FROM MORDER A
+			   WHERE 1=1
+			   AND (TO_CHAR(MORDER_DATE,'MM') ='04' 
+			   OR TO_CHAR(MORDER_DATE,'MM') ='05'
+			   OR TO_CHAR(MORDER_DATE,'MM') ='06')
+			   GROUP BY MENU_ID
+			   ORDER BY COUNT(A.MORDER_QTY) DESC)
+		  )LIST INNER JOIN ATTATCH B ON(LIST.MENU_ID = B.TABLE_PK)
+		where rnk<6
+        order by rnk asc
+]]> 
+</select>
+
+<!-- 시즌별 음식 판매 순위 thirdQuarter -->
+<select id="selectSeasonFLank3" resultType="hashmap">
+<![CDATA[
+SELECT TO_NUMBER(RNK) AS RNK, MENUNAME, THUMB_IMG
+	FROM(
+		SELECT ROW_NUMBER() OVER (ORDER BY menuCnt desc) RNK, MENUNAME, menuCnt,menu_id
+		FROM (SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') AS MENUNAME, count(menu_id) as menuCnt,menu_id
+			    FROM MORDER A
+			   WHERE 1=1
+			   AND (TO_CHAR(MORDER_DATE,'MM') ='07' 
+			   OR TO_CHAR(MORDER_DATE,'MM') ='08'
+			   OR TO_CHAR(MORDER_DATE,'MM') ='09')
+			   GROUP BY MENU_ID
+			   ORDER BY COUNT(A.MORDER_QTY) DESC)
+		  )LIST INNER JOIN ATTATCH B ON(LIST.MENU_ID = B.TABLE_PK)
+		where rnk<6
+        order by rnk asc
+]]> 
+<!-- SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') as "menuName" -->
+<!--             ,count(menu_id) as "menuCnt" -->
+<!--             ,NVL((SELECT COUNT(MENU_ID) -->
+<!--                    FROM MORDER B -->
+<!--                   WHERE 1=1 -->
+<!--                    AND (TO_CHAR(MORDER_DATE,'MM') ='01'  -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='02' -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='03') -->
+<!--                     AND A.MENU_ID = B.MENU_ID -->
+<!--                   GROUP BY MENU_ID),0) as "firstQuarter" -->
+<!--             ,NVL((SELECT COUNT(MENU_ID) -->
+<!--                    FROM MORDER B -->
+<!--                   WHERE 1=1 -->
+<!--                    AND (TO_CHAR(MORDER_DATE,'MM') ='04'  -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='05' -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='06') -->
+<!--                     AND A.MENU_ID = B.MENU_ID -->
+<!--                   GROUP BY MENU_ID),0) as "secondQuarter" -->
+<!--             ,NVL((SELECT COUNT(MENU_ID) -->
+<!--                    FROM MORDER B -->
+<!--                   WHERE 1=1 -->
+<!--                    AND (TO_CHAR(MORDER_DATE,'MM') ='07'  -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='08' -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='09') -->
+<!--                     AND A.MENU_ID = B.MENU_ID -->
+<!--                   GROUP BY MENU_ID),0) as "thirdQuarter" -->
+<!--             ,NVL((SELECT COUNT(MENU_ID) -->
+<!--                    FROM MORDER B -->
+<!--                   WHERE 1=1 -->
+<!--                    AND (TO_CHAR(MORDER_DATE,'MM') ='10'  -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='11' -->
+<!--                     OR TO_CHAR(MORDER_DATE,'MM') ='12') -->
+<!--                     AND A.MENU_ID = B.MENU_ID -->
+<!--                   GROUP BY MENU_ID),0) as "fourthQuarter" -->
+<!--   FROM MORDER A -->
+<!--  GROUP BY MENU_ID -->
+<!--  ORDER BY COUNT(MENU_ID) DESC -->
+</select>
+
+<!-- 시즌별 음식 판매 순위 fourthQuarter -->
+<select id="selectSeasonFLank4" resultType="hashmap">
+<![CDATA[
+	SELECT TO_NUMBER(RNK) AS RNK, MENUNAME, THUMB_IMG
+		FROM(
+			SELECT ROW_NUMBER() OVER (ORDER BY menuCnt desc) RNK, MENUNAME, menuCnt,menu_id
+			FROM (SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') AS MENUNAME, count(menu_id) as menuCnt,menu_id
+				    FROM MORDER A
+				   WHERE 1=1
+				   AND (TO_CHAR(MORDER_DATE,'MM') ='10' 
+				   OR TO_CHAR(MORDER_DATE,'MM') ='11'
+				   OR TO_CHAR(MORDER_DATE,'MM') ='12')
+				   GROUP BY MENU_ID
+				   ORDER BY COUNT(A.MORDER_QTY) DESC)
+			  )LIST INNER JOIN ATTATCH B ON(LIST.MENU_ID = B.TABLE_PK)
+		where rnk<6
+        order by rnk asc
+]]> 
+</select>
+
+
+<!-- 월 트렌드 -->
+<select id="selectMonthFLank" resultType="hashmap">
+<![CDATA[
+	SELECT MON, NVL(A,0) AS ONE,NVL(B,0) AS TWO,NVL(C,0)AS THREE
+	FROM     
+		(WITH X AS (
+			    SELECT U.RNK, U.MON,U.MENU_ID, (SELECT MENU_NAME FROM MENU WHERE MENU_ID = U.MENU_ID) MENU_NAME
+			         , CASE WHEN U.RNK = 1 THEN U.SUM_QTY END A
+			         , CASE WHEN U.RNK = 2 THEN U.SUM_QTY END B
+			         , CASE WHEN U.RNK = 3 THEN U.SUM_QTY END C
+			    FROM
+			    (
+			        SELECT ROW_NUMBER() OVER (PARTITION BY T.MON ORDER BY T.SUM_QTY DESC) RNK, T.MON, T.MENU_ID, T.SUM_QTY
+			        FROM
+			        (
+			            SELECT EXTRACT(MONTH FROM MORDER_DATE) MON
+			                 , MENU_ID
+			                 , SUM(MORDER_QTY) SUM_QTY
+			            FROM   MORDER
+			            GROUP BY EXTRACT(MONTH FROM MORDER_DATE), MENU_ID
+			            ORDER BY 1, SUM(MORDER_QTY) DESC
+			        ) T
+			    ) U
+			    WHERE U.RNK <= 3
+			)
+			SELECT X.MON Y, MAX( NVL(X.A,0) ||'('||X.MENU_NAME||')') A, MAX( NVL(X.B,0) ||'('||X.MENU_NAME||')') B, MAX(NVL(X.C,0)||'('||X.MENU_NAME||')') C
+			FROM   X 
+		    GROUP BY X.MON ) XX  FULL OUTER JOIN TB_MONTH ON TB_MONTH.MON=Y
+		    
+		    ORDER BY MON
+]]> 
+
+<!-- 	<![CDATA[ -->
+<!-- 	 SELECT * -->
+<!-- 	   FROM( -->
+<!-- 	        SELECT ROWNUM RNUM, LIST.* -->
+<!-- 	          FROM( -->
+<!-- 		          SELECT RANK() OVER (partition by "month" ORDER BY "menuCnt" DESC) RANK, "month", "menuName", "menuCnt" -->
+<!-- 		            FROM( -->
+<!-- 		                SELECT ('month'||TO_CHAR(MORDER_DATE,'mm')) "month", NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴') as "menuName", COUNT(MENU_ID) as "menuCnt" -->
+<!-- 		                  FROM MORDER a -->
+<!-- 		                 GROUP BY MENU_ID, MORDER_DATE) -->
+<!-- 	         ORDER BY RANK ASC)LIST -->
+<!-- 	    ) -->
+<!-- 	   WHERE RANK<3 -->
+<!-- 	   ORDER BY RANK ASC -->
+<!-- 	           ,"month" ASC -->
+<!--     ]]> -->
+
+<!-- SELECT DENSE_RANK() OVER (ORDER BY "menuCnt" DESC) RANK, "month", "menuName", "menuCnt" -->
+<!--   FROM( -->
+<!-- 		 SELECT ('month'||to_char(MORDER_DATE,'mm')) "month" -->
+<!-- 		      , (SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID) as "menuName" -->
+<!-- 		      , count(menu_id) as "menuCnt" -->
+<!-- 		   FROM MORDER a -->
+<!-- 		  GROUP BY MENU_ID, MORDER_DATE) -->
+<!--  WHERE "menuName" IS NOT NULL -->
+
+<!--  SELECT * -->
+<!--    FROM( -->
+<!-- 	     select ('month' || to_char(MORDER_DATE,'mm')) "month", menu_id, (SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID) as "menuName" -->
+<!-- 	      FROM MORDER a) -->
+<!-- 	 	  PIVOT (COUNT(MENU_ID) FOR "month" IN ('month01' "moth01",'month02' "moth02",'month03' "moth03",'month04' "moth04" -->
+<!-- 											   ,'month05' "moth05",'month06' "moth06",'month07' "moth07",'month08' "moth08" -->
+<!-- 											   ,'month09' "moth09",'month10' "moth10",'month11' "moth11",'month12' "moth12"))pvt -->
+<!--   WHERE "menuName" IS NOT NULL -->
+  
+  
+<!-- 	SELECT NVL((SELECT MENU_NAME FROM MENU WHERE MENU_ID=A.MENU_ID),'존재하지 않는 메뉴명 입니다') as "menuName" -->
+<!-- 	      ,COUNT(MENU_ID) AS "menuCnt" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='01' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month1" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='02' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month2" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='03' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month3" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='04' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month4" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='05' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month5" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='06' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month6" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='07' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month7" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='08' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month8" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='09' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month9" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='10' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month10" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='11' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month11" -->
+<!-- 	      ,NVL((SELECT COUNT(MENU_ID) -->
+<!-- 	               FROM MORDER B -->
+<!-- 	              WHERE TO_CHAR(MORDER_DATE,'MM') ='12' -->
+<!-- 	                AND A.MENU_ID = B.MENU_ID -->
+<!-- 	              GROUP BY MENU_ID),0) as "month12" -->
+<!-- 	  FROM MORDER A -->
+<!-- 	 GROUP BY MENU_ID -->
+<!-- 	 ORDER BY COUNT(MENU_ID) DESC -->
+</select>
+</mapper>

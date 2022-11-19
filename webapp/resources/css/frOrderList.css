@@ -1,0 +1,10 @@
+.pagingArea {
+	justify-content: center;
+	margin-bottom: 0px;
+}
+.pagination {
+	margin-top: 0px !important;
+}
+.hide {
+	display:none;
+}

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.populars">
+
+<!--찜된갯수 -->
+<select id="getWishCnt" resultType="int">
+select count(mem_id) as wish_cnt
+from wish
+where fran_Id=#{franId}
+</select>
+<select id="getWishCntMonth" resultType="int">
+select count(mem_id) as wish_cnt_month
+from wish
+where fran_Id=#{franId}
+    and wish_date >= TO_DATE(#{stDate})
+    <![CDATA[and wish_date < TO_DATE(#{enDate})]]>
+</select>
+<!-- 리뷰 갯수 -->
+<select id="getReviewCnt" resultType="int">
+select count(REVIEW_SN) as review_cnt
+from REVIEW
+where fran_Id=#{franId}
+</select>
+<select id="getReviewCntMonth" resultType="int">
+select count(REVIEW_SN) as review_cnt_month
+from REVIEW
+where fran_Id=#{franId}
+    and REVIEW_DATE >= TO_DATE(#{stDate})
+   <![CDATA[and REVIEW_DATE < TO_DATE(#{enDate})]]>
+</select>
+
+
+<!-- 이달의 인기메뉴 + 메뉴 원판순위 -->
+<select id="getMenuCnt" resultType="PopularVO">
+
+select b.thumb_img, a.menu_name, a.sum_qty
+from (select a.menu_id, a.menu_name, b.sumQty as sum_qty
+		from menu a
+		inner join (select menu_id, sum(morder_qty) as sumQty
+		            from morder
+		            where fran_id=#{franId} 
+		                    and MORDER_DATE >= TO_DATE(#{stDate})
+		                    <![CDATA[and MORDER_DATE < TO_DATE(#{enDate})]]>
+		                    and resv_Id not in (select resv_id 
+		                                from resv 
+		                                where resv_state = 'ST14')
+		            group by menu_id) b
+		on a.menu_id = b.menu_id) a
+inner join attatch b
+on(a.menu_id = b.table_pk)
+</select>
+
+<!-- 날짜별 방문인원 : 전체-->
+<select id="getAllPcntCnt" resultType="PopularVO"> 
+	<![CDATA[
+	SELECT substr(A.ALLDATE,9) as morder_date, NVL(B.ALL_PCNT, 0) as all_pcnt
+	FROM
+	(
+	SELECT TO_CHAR(TO_DATE(#{stDate},'YYYY-MM-DD') + (LEVEL-1), 'YYYY-MM-DD') AS ALLDATE
+	FROM DUAL
+	CONNECT BY LEVEL <= TO_DATE(#{enDate},'YYYY-MM-DD') - TO_DATE(#{stDate},'YYYY-MM-DD')+1
+	) A LEFT OUTER JOIN 
+	(
+	select TO_CHAR(morder_date,'yyyy-mm-dd') as morder_date, sum(pcnt) as all_pcnt
+	   from (
+	       select max(pcnt) as pcnt, morder_id, morder_date
+	       from MORDER
+	       where fran_id=#{franId} 
+	               and MORDER_DATE >= TO_DATE(#{stDate})
+	               and MORDER_DATE <= TO_DATE(#{enDate})
+	               and (resv_Id not in (select resv_id 
+	                                   from resv
+	                                   where resv_state = 'ST14') or resv_id is null)
+	       group by morder_id, morder_date
+	   )
+	   group by TO_CHAR(morder_date,'yyyy-mm-dd')
+	) B ON (A.ALLDATE = B.morder_date)
+	ORDER BY A.ALLDATE
+	]]>
+</select>
+
+<!-- 날짜별 방문인원 : 예약자만-->
+<select id="getResvPcntCnt" resultType="PopularVO">
+	<![CDATA[
+	SELECT substr(A.ALLDATE,9) as resv_date, NVL(B.RESV_PCNT, 0) as resv_pcnt
+	FROM
+	(
+	SELECT TO_CHAR(TO_DATE(#{stDate},'YYYY-MM-DD') + (LEVEL-1), 'YYYY-MM-DD') AS ALLDATE
+	FROM DUAL
+	CONNECT BY LEVEL <= TO_DATE(#{enDate},'YYYY-MM-DD') - TO_DATE(#{stDate},'YYYY-MM-DD')+1
+	) A LEFT OUTER JOIN 
+	(
+            select SUM(RESV_PCNT) as resv_pcnt, TO_CHAR(RESV_DATE,'yyyy-mm-dd') as resv_date
+            from RESV
+            where fran_id=#{franId} 
+            and RESV_DATE >= TO_DATE(#{stDate})
+            and RESV_DATE <= TO_DATE(#{enDate})
+            and resv_Id not in (select resv_id 
+                                from resv 
+                                where resv_state = 'ST14')
+            group by RESV_DATE
+	) B ON (A.ALLDATE = B.resv_date)
+	ORDER BY A.ALLDATE
+	]]>
+</select>
+
+
+
+</mapper>

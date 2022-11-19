@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.fr.frOrder.dao.FrOrderDAO">
+
+<!-- 발주제품검색조회 -->
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+		       			INSTR(BUYERPROD_NAME,#{simpleCondition.searchWord}) > 0 
+			</if>
+		</trim>
+</sql>
+
+<!-- 발주내역검색조회 -->
+<sql id="searchFragList">
+		<where>
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	   			<choose>
+					<when test="simpleCondition.searchType eq 'frOrderNo'">
+						INSTR(FRORDER_NO, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'frOrderPrice'">
+						INSTR(FRORDER_PRICE, #{simpleCondition.searchWord}) > 0
+					</when>			    
+					<otherwise>
+						INSTR(LGU_NAME, #{simpleCondition.searchWord}) > 0
+					</otherwise>    		
+	        	</choose>
+			</if>
+		</where>
+</sql>
+
+<!-- 발주내역날짜검색조회 -->
+<sql id="searchDateFrag">
+	<where>
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchStartDate) and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchEndDate)">
+			<![CDATA[
+       			FRORDER_DATE >= #{simpleCondition.searchStartDate} AND FRORDER_DATE <= #{simpleCondition.searchEndDate} 
+ 			]]> 
+		</if>
+	</where>
+</sql>
+
+<!-- 발주제품 조회 -->
+<select id="selectProdOrderList" resultType="FrOrderVO">
+	SELECT *
+	  FROM (
+	        SELECT A.BUYERPROD_ID, A.BUYERPROD_NAME, 
+	               <![CDATA[TO_CHAR((A.BUYERPROD_PRICE*1.2), '999,999,999')]]> AS BUYERPROD_PRICE, 
+	               D.HSTOCK_QTY, C.FRSTOCK_QTY, B.ATORDER_QTY, B.FRAN_ID 
+	          FROM BUYERPROD A LEFT OUTER JOIN HSTOCK D ON (A.BUYERPROD_ID = D.BUYERPROD_ID)
+	                        LEFT OUTER JOIN FRSTOCK C ON (A.BUYERPROD_ID = C.BUYERPROD_ID)
+	                        LEFT OUTER JOIN ATORDER B ON (A.BUYERPROD_ID = B.BUYERPROD_ID)
+	         WHERE C.FRAN_ID = #{franId}
+	           AND B.FRAN_ID = #{franId}
+       )
+   	 <include refid="searchFrag"/>
+     ORDER BY BUYERPROD_ID
+
+</select>
+
+
+<!-- 발주내역 조회 페이징 -->
+<select id="selectOrderList" parameterType="com.celebback.vo.PagingVO" resultType="FrOrderVO">
+	SELECT F.*   
+ 	  FROM (
+		    SELECT E.*
+			  FROM (
+		    		SELECT ROWNUM RNUM, D.*
+		      		  FROM (
+					        SELECT A.FRORDER_NO, <![CDATA[TO_CHAR((A.FRORDER_DATE), 'YYYY-MM-DD')]]> AS FRORDER_DATE, 
+					               <![CDATA[TO_CHAR((A.FRORDER_PRICE), '999,999,999')]]> AS FRORDER_PRICE, C.LGU_NAME, 
+					               B.FRAN_ID, B.OWNER_ID 
+				          	  FROM FRORDER A LEFT OUTER JOIN LGU C ON(A.FRORDER_STATE = C.LGU_ID)
+                                     		 LEFT OUTER JOIN FRAN B ON(A.FRAN_ID = B.FRAN_ID)
+		                     WHERE A.FRAN_ID = #{franId}
+		                     ORDER BY A.FRORDER_NO DESC
+				            )D
+			        )E
+			<include refid="searchFragList"/>
+			<include refid="searchDateFrag"/>
+		     ORDER BY FRORDER_NO DESC
+		    ) F
+	<![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+	
+</select>
+
+<!-- 발주내역 조회 cnt -->
+<select id="selecTotalRecord" parameterType="com.celebback.vo.PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM (
+	        SELECT A.FRORDER_NO, <![CDATA[TO_CHAR((A.FRORDER_DATE), 'YYYY-MM-DD')]]> AS FRORDER_DATE, 
+			       <![CDATA[TO_CHAR((A.FRORDER_PRICE), '999,999,999')]]> AS FRORDER_PRICE, C.LGU_NAME, B.FRAN_ID, B.OWNER_ID 
+			  FROM FRORDER A LEFT OUTER JOIN LGU C ON(A.FRORDER_STATE = C.LGU_ID)
+                             LEFT OUTER JOIN FRAN B ON(A.FRAN_ID = B.FRAN_ID)
+             WHERE A.FRAN_ID= #{franId}
+	    	)
+	<include refid="searchFragList"/>
+	<include refid="searchDateFrag"/>
+     ORDER BY FRORDER_NO DESC
+</select>
+
+<!-- 발주내역 상세조회 -->
+<select id="selectOrder" parameterType="String" resultType="FrOrderVO">
+	 SELECT DTORDER_NAME, DTORDER_QTY, <![CDATA[TO_CHAR((DTORDER_PRICE), '999,999,999')]]> AS DTORDER_PRICE, FRORDER_NO
+  	   FROM DTORDER   
+      WHERE FRORDER_NO = #{frOrderNo}
+       
+<!--        SELECT A.DTORDER_NAME, A.DTORDER_QTY, A.DTORDER_PRICE, B.LGU_NAME -->
+<!--         FROM DTORDER A LEFT OUTER JOIN LGU B ON(A.BUYERPROD_ID = B.LGU_ID); -->
+</select>
+
+<!-- 	ownerId로 franId를 구한다 -->
+	<select id="selectFranId" parameterType="String" resultType="String">
+		SELECT FRAN_ID
+		FROM FRAN
+		WHERE OWNER_ID = #{authName}
+	</select>
+
+
+<!-- 발주등록 -->
+<insert id="inserOrder" parameterType="FrOrderVO">
+	<selectKey resultType="String" keyProperty="frOrderNo" order="BEFORE">
+		SELECT TO_CHAR(SYSDATE,'yyyymmdd')||'-'||LPAD(FRORDER_NO_SEQ.NEXTVAL, 5, '0') AS FRORDER_NO
+		  FROM DUAL
+	</selectKey>
+	INSERT ALL
+	    INTO FRORDER(FRORDER_NO, FRAN_ID, FRORDER_PRICE, FRORDER_DATE, FRORDER_STATE) 
+	  VALUES (#{frOrderNo}, #{franId}, #{frOrderPrice}, SYSDATE, 'ST09')
+	  
+	   <foreach item="dtArr" collection="dtList">
+	    INTO DTORDER(FRORDER_NO, BUYERPROD_ID, DTORDER_NAME, DTORDER_QTY, DTORDER_PRICE) 
+	  VALUES ( 
+            #{frOrderNo}, #{dtArr.buyerProdId}, #{dtArr.dtOrderName}, #{dtArr.dtOrderQty}, #{dtArr.dtOrderPrice}
+            )
+       </foreach>
+	SELECT * FROM DUAL
+</insert>
+
+<!-- 마지막 주문번호값 가져오기 -->
+<select id="selectOrderNo" resultType="String">
+	SELECT MAX(FRORDER_NO)
+      FROM FRORDER
+</select>
+
+<!-- 발주완료시 내역조회 -->
+<select id="selectScOrder" resultType="FrOrderVO" parameterType="String">
+	SELECT A.FRORDER_NO, A.FRORDER_PRICE, B.ALL_QTY, C.FRAN_ADD1 ||' '|| C.FRAN_ADD2 AS FRAN_ADD
+      FROM FRORDER A FULL OUTER JOIN (SELECT COUNT(*) AS ALL_QTY, FRORDER_NO
+                                       FROM DTORDER
+                                      GROUP BY FRORDER_NO) B ON(A.FRORDER_NO = B.FRORDER_NO)
+    				 LEFT OUTER JOIN FRAN C ON(A.FRAN_ID = C.FRAN_ID)  
+     WHERE A.FRORDER_NO = #{frOrderNo}
+     ORDER BY FRORDER_NO DESC
+
+</select>
+
+<!-- 발주취소 -->
+<update id="deleteOrder" parameterType="String">
+	UPDATE FRORDER
+   	   SET FRORDER_STATE = 'ST08'
+   	 WHERE FRORDER_NO = #{frOrderNo}
+</update>
+
+<!-- 주문확정하기위해 select해오는 값 -->
+<select id="selectConfirmOrder" parameterType="FrOrderVO" resultType="FrOrderVO">
+	SELECT DISTINCT A.BUYERPROD_ID, A.DTORDER_QTY, B.FRAN_ID, B.FRORDER_NO, D.FRSTOCK_QTY
+  	  FROM DTORDER A LEFT OUTER JOIN FRORDER B ON(A.FRORDER_NO = B.FRORDER_NO)
+                     LEFT OUTER JOIN LGU C ON(B.FRORDER_STATE = C.LGU_ID)
+                     LEFT OUTER JOIN (SELECT *
+                                        FROM FRSTOCK
+                                       WHERE FRAN_ID = #{franId}
+                                      ) D ON(A.BUYERPROD_ID = D.BUYERPROD_ID)
+     WHERE C.LGU_NAME = '배송완료'
+       AND B.FRAN_ID = #{franId}
+       AND B.FRORDER_NO = #{frOrderNo}
+     ORDER BY BUYERPROD_ID
+		
+</select>
+
+<!-- 주문확정 -->
+<insert id="insertConfirmOrder" parameterType="FrOrderVO">
+	INSERT INTO FRANIN (FRAN_ID, BUYERPROD_ID, FRANIN_QTY, FRANIN_DATE)
+   	VALUES (#{franId}, #{buyerProdId}, #{dtOrderQty}, SYSDATE)
+</insert>
+<update id="updateConfirmOrder" parameterType="FrOrderVO">
+	UPDATE FRORDER
+   	   SET FRORDER_STATE = 'ST15'
+	 WHERE FRORDER_NO = #{frOrderNo}
+</update>
+<update id="updateFrStockOrder" parameterType="FrOrderVO">
+	MERGE INTO FRSTOCK
+   	USING DUAL
+      ON (BUYERPROD_ID = #{buyerProdId, jdbcType=VARCHAR} AND FRAN_ID = #{franId})
+   WHEN MATCHED THEN
+        UPDATE SET FRSTOCK_QTY = <![CDATA[#{frStockQty} + #{dtOrderQty}]]>
+   WHEN NOT MATCHED THEN
+       INSERT (BUYERPROD_ID, FRAN_ID, FRSTOCK_QTY) 
+       VALUES (#{buyerProdId, jdbcType=VARCHAR}, #{franId}, #{frStockQty})
+</update>
+
+
+
+
+
+</mapper>

@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.fr.dao.FrDAO">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 8. 5.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+
+
+<resultMap type="com.celebback.vo.FranVO" id="frMap" autoMapping="true">
+	<id column="FRAN_ID" property="franId"/>
+	<association property="checking" javaType="com.celebback.vo.CheckingVO" autoMapping="true"></association>
+	<association property="owner" javaType="com.celebback.vo.OwnerVO" autoMapping="true"></association>
+</resultMap>
+
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'franName'">
+				       			INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0 <!-- JAVA의 indexOf와 같음 --><!-- LIKE는 퍼포먼스가 떨어짐 --> 
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'ownerName'">
+				       			INSTR(OWNER_NAME,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'franAdd1'">
+				       			INSTR(FRAN_ADD1,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 INSTR(FRAN_NAME,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(OWNER_NAME,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(FRAN_ADD1,#{simpleCondition.searchWord}) > 0
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+		<trim prefix="AND (" suffix=")">
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchSelectArr)">
+				<foreach collection="simpleCondition.searchSelectArr" item="arr" separator="OR">
+					LGU_NAME = #{arr}
+				</foreach>
+			</if>
+			</trim>
+</sql>
+
+<!-- 가맹점 운영상태 단순 조회 -->
+<select id="selectFranState" resultType="hashMap">
+	SELECT LGU_ID "lguId", LGU_NAME "lguName"
+      FROM LGU
+     WHERE LGU_HIGH='FR'
+</select>
+
+<!-- 가맹점 전체 조회(파라미터 있음)-->
+<select id="selectFranList" resultMap="frMap" parameterType="com.celebback.vo.PagingVO">
+	SELECT *
+	 FROM(
+			SELECT ROWNUM RNUM, LIST.*
+		    from(
+		        SELECT FRAN_NAME		,B.OWNER_NAME		,A.FRAN_ID
+		               ,FRAN_TEL		,D.LGU_NAME AS FRAN_STATE
+		               ,NVL(TRUNC(SUM(c.CHECK_INDI+c.CHECK_FRAN+c.CHECK_FOOD)/3),0) AS SCORE
+		               ,FRAN_ADD1 ||' '||  FRAN_ADD2 AS FRAN_ADD1
+		          FROM FRAN A LEFT OUTER JOIN OWNER B ON(A.OWNER_ID=B.OWNER_ID)
+		                      LEFT OUTER JOIN CHECKING C ON(A.FRAN_ID=C.FRAN_ID)
+		                      LEFT OUTER JOIN LGU D ON(A.FRAN_STATE=D.LGU_ID)
+		     <include refid="searchFrag"/>
+		         GROUP BY FRAN_NAME		,B.OWNER_NAME	,FRAN_LOCA
+		                 ,FRAN_STATE	,FRAN_TEL		,FRAN_ADD1
+		                 ,FRAN_ADD2		, A.FRAN_ID		,D.LGU_NAME
+                 ORDER BY FRAN_ID DESC
+		         )LIST
+		     
+	      )
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 가맹점 전체 조회 cnt -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+    FROM(
+        SELECT FRAN_NAME		,B.OWNER_NAME		,A.FRAN_ID
+               ,FRAN_TEL		,D.LGU_NAME AS FRAN_STATE
+               ,NVL(TRUNC(SUM(C.CHECK_INDI+C.CHECK_FRAN+C.CHECK_FOOD)/3),0) AS SCORE
+               ,FRAN_ADD1 ||' '||  FRAN_ADD2 AS FRAN_ADD1
+          FROM FRAN A LEFT OUTER JOIN OWNER B ON(A.OWNER_ID=B.OWNER_ID)
+                      LEFT OUTER JOIN CHECKING C ON(A.FRAN_ID=C.FRAN_ID)
+                      LEFT OUTER JOIN LGU D ON(A.FRAN_STATE=D.LGU_ID)
+        <include refid="searchFrag"/>
+         GROUP BY FRAN_NAME		,B.OWNER_NAME	,FRAN_LOCA
+                 ,FRAN_STATE	,FRAN_TEL		,FRAN_ADD1
+                 ,FRAN_ADD2		, A.FRAN_ID		,D.LGU_NAME
+                 )
+	
+</select>
+
+<!-- 가맹점 상세 조회 -->
+<select id="selectFran" parameterType="String" resultMap="frMap">
+	SELECT
+		     A.FRAN_ID        ,B.OWNER_NAME     ,FRAN_ZIP
+		    ,A.FRAN_NAME      ,FRAN_TEL         ,OWNER_TEL
+		    ,FRAN_ACCOUNT     
+		    ,D.LGU_NAME AS FRAN_STATE
+	        ,TO_CHAR(FRAN_STDATE,'YYYY.MM.DD') AS FRAN_STDATE
+	        ,TO_CHAR(FRAN_OPDATE,'YYYY.MM.DD') AS FRAN_OPDATE
+	        ,TO_CHAR(FRAN_INSDATE,'YYYY.MM.DD') AS FRAN_INSDATE
+	        ,TO_CHAR(FRAN_INEDATE,'YYYY.MM.DD') AS FRAN_INEDATE
+	        ,TO_CHAR(B.OWNER_BIRTH,'YYYY.MM.DD') AS OWNER_BIRTH
+		    ,B.OWNER_ADD1    || ' ' || B.OWNER_ADD2 AS OWNER_ADD1
+		    ,FRAN_ADD1       || ' ' || FRAN_ADD2 AS FRAN_ADD1
+		FROM
+		    FRAN A LEFT OUTER JOIN OWNER B ON ( A.OWNER_ID = B.OWNER_ID )
+				   LEFT OUTER JOIN CHECKING C ON ( A.FRAN_ID = C.FRAN_ID )
+				   LEFT OUTER JOIN LGU D ON ( A.FRAN_STATE = D.lgu_id )
+		WHERE A.FRAN_ID=#{franId}
+</select>
+
+<!-- 엑셀 다운로드 -->
+<select id="excelDown" resultMap="frMap">
+	 SELECT  A.FRAN_ID			,A.OWNER_ID			  ,C.OWNER_NAME
+	        ,C.OWNER_TEL        ,C.OWNER_PEDU
+	        ,C.CONSULT_SN   	,B.LGU_NAME	as FRAN_STATE
+	        ,FRAN_NAME			,FRAN_TEL
+	        ,FRAN_BANK			,FRAN_ACCOUNT
+	        ,FRAN_ZIP     	    ,FRAN_ADD1      	  ,FRAN_ADD2
+	        ,FRAN_XMAP	        ,FRAN_YMAP
+	        ,(SELECT LGU_NAME
+	            FROM FRAN E LEFT OUTER JOIN LGU F ON(E.FRAN_STATE = F.LGU_ID)
+	           WHERE A.FRAN_ID=E.FRAN_ID) AS FRAN_STATE
+	        ,TO_CHAR(C.OWNER_BIRTH ,'YYYY.MM.DD') AS OWNER_BIRTH
+	        ,TO_CHAR(FRAN_STDATE,'YYYY.MM.DD') AS FRAN_STDATE
+	        ,TO_CHAR(FRAN_ENDATE,'YYYY.MM.DD') AS FRAN_ENDATE
+	        ,TO_CHAR(FRAN_CDATE,'YYYY.MM.DD') AS FRAN_CDATE
+	        ,TO_CHAR(FRAN_INSDATE,'YYYY.MM.DD') AS FRAN_INSDATE
+	        ,TO_CHAR(FRAN_INEDATE,'YYYY.MM.DD') AS FRAN_INEDATE
+	        ,TO_CHAR(FRAN_OPDATE,'YYYY.MM.DD') AS FRAN_OPDATE
+	  FROM FRAN A LEFT OUTER JOIN LGU B ON (A.FRAN_LOCA = B.LGU_ID)
+	              LEFT OUTER JOIN OWNER C ON (A.OWNER_ID=C.OWNER_ID)
+	              LEFT OUTER JOIN LGU D ON(A.FRAN_STATE = D.LGU_ID)
+</select>
+
+<!-- 파라미터 없이 가맹점 조회하는 쿼리. 
+     엑셀 업로드 시 쓰려고했는데 안쓰게됨. 일단 남겨둠. -->
+<select id="selectAllFranList" resultType="hashmap">
+	SELECT   A.FRAN_ID			,A.OWNER_ID			  ,C.OWNER_NAME
+	        ,C.OWNER_TEL        ,C.OWNER_PEDU
+	        ,C.CONSULT_SN   	,B.LGU_NAME	AS FRAN_STATE
+	        ,FRAN_NAME			,FRAN_TEL
+	        ,FRAN_BANK			,FRAN_ACCOUNT
+	        ,FRAN_ZIP     	    ,FRAN_ADD1      	  ,FRAN_ADD2
+	        ,FRAN_XMAP	        ,FRAN_YMAP
+	        ,(SELECT LGU_NAME
+	            FROM FRAN E LEFT OUTER JOIN LGU F ON(E.FRAN_STATE = F.LGU_ID)
+	           WHERE A.FRAN_ID=E.FRAN_ID) AS FRAN_STATE
+	        ,TO_CHAR(C.OWNER_BIRTH ,'YYYY.MM.DD') AS OWNER_BIRTH
+	        ,TO_CHAR(FRAN_STDATE,'YYYY.MM.DD') AS FRAN_STDATE
+	        ,TO_CHAR(FRAN_ENDATE,'YYYY.MM.DD') AS FRAN_ENDATE
+	        ,TO_CHAR(FRAN_CDATE,'YYYY.MM.DD') AS FRAN_CDATE
+	        ,TO_CHAR(FRAN_INSDATE,'YYYY.MM.DD') AS FRAN_INSDATE
+	        ,TO_CHAR(FRAN_INEDATE,'YYYY.MM.DD') AS FRAN_INEDATE
+	        ,TO_CHAR(FRAN_OPDATE,'YYYY.MM.DD') AS FRAN_OPDATE
+	  FROM FRAN A LEFT OUTER JOIN LGU B ON (A.FRAN_LOCA = B.LGU_ID)
+	              LEFT OUTER JOIN OWNER C ON (A.OWNER_ID=C.OWNER_ID)
+	              LEFT OUTER JOIN LGU D ON(A.FRAN_STATE = D.LGU_ID)
+		     <include refid="searchFrag"/>
+</select>
+
+<!-- 엑셀 업로드1 -->
+<update id="mergeConsult" parameterType="ConsultVO">
+	MERGE
+	 INTO CONSULT
+	USING DUAL
+	   ON (CONSULT_SN=#{consultSn})
+	WHEN MATCHED THEN
+	    	UPDATE 
+	      		SET CONSULT_TEL   = #{consultTel}
+	      			,CONSULT_DATE = #{consultDate}
+	      			,CONSULT_NAME = #{consultName}
+	WHEN NOT MATCHED THEN
+	    	INSERT (CONSULT_SN, 	CONSULT_NAME, CONSULT_TEL
+	    			,CONSULT_DATE)
+	    	VALUES (#{consultSn}, #{consultName}, #{consultTel}
+	    			, #{consultDate})
+</update>
+
+<!-- 엑셀 업로드2 -->
+<update id="mergeApply" parameterType="ApplyVO">
+	MERGE
+	 INTO APPLY
+	USING DUAL
+	   ON (CONSULT_SN=#{consultSn})
+	WHEN MATCHED THEN
+	    UPDATE 
+	       SET APPLY_ZIP  = #{applyZip}
+	       	  ,APPLY_ADD1 = #{applyAdd1}
+	       	  ,APPLY_ADD2 = #{applyAdd2}
+	WHEN NOT MATCHED THEN
+	    INSERT  (CONSULT_SN		,APPLY_ZIP		,APPLY_ADD1
+	    		,APPLY_ADD2)
+	     VALUES (#{consultSn}	,#{applyZip}	,#{applyAdd1}
+	     		,#{applyAdd2})
+</update>
+
+<!-- 엑셀 업로드3 -->
+<update id="mergeOwner" parameterType="OwnerVO">
+	MERGE
+	 INTO OWNER
+	USING DUAL
+	   ON (CONSULT_SN=#{consultSn})
+	WHEN MATCHED THEN
+	    UPDATE 
+	       SET OWNER_NAME  = #{ownerName}
+	       	  ,OWNER_TEL   = #{ownerTel}
+	       	  ,OWNER_BIRTH = #{ownerBirth}
+	       	  ,OWNER_PEDU  = #{ownerPedu}
+	WHEN NOT MATCHED THEN
+	    INSERT (OWNER_ID		,CONSULT_SN		,OWNER_NAME
+	    		,OWNER_TEL		,OWNER_BIRTH	,OWNER_PEDU
+	    		,OWNER_ADD1 	,OWNER_ADD2) 
+	    VALUES (#{ownerId}		,#{consultSn}	,#{ownerName}
+	    		,#{ownerTel}	,#{ownerBirth}	,#{ownerPedu}
+	    		,#{ownerAdd1}	,#{ownerAdd2})
+</update>
+
+<!-- 엑셀 업로드4 -->
+<update id="mergeFran" parameterType="FranVO">
+	MERGE
+	 INTO FRAN
+	USING DUAL
+	   ON (FRAN_ID=#{franId})
+	WHEN MATCHED THEN
+	    UPDATE 
+	       SET FRAN_NAME	= #{franName}
+	          ,FRAN_TEL		= #{franTel}
+	          ,FRAN_BANK	= #{franBank}
+	          ,FRAN_ACCOUNT = #{franAccount}
+	          ,FRAN_STATE   = #{franState}
+	          ,FRAN_ENDATE  = #{franEndate}
+	          ,FRAN_INSDATE = #{franInsdate}
+	          ,FRAN_INEDATE = #{franInedate}
+	WHEN NOT MATCHED THEN
+	    INSERT (FRAN_ID			,OWNER_ID		,FRAN_NAME
+	    		,FRAN_LOCA		,FRAN_TEL		,FRAN_BANK
+	    		,FRAN_ACCOUNT	,FRAN_ENDATE	,FRAN_INSDATE
+	    		,FRAN_INEDATE	,FRAN_ZIP		,FRAN_ADD1
+	    		,FRAN_ADD2		,FRAN_XMAP		,FRAN_YMAP
+	    		,FRAN_STATE
+	    )
+	     VALUES(#{franId}		,#{ownerId}		,#{franName}
+	     		,#{franLoca}	,#{franTel}		,#{franBank}
+	     		,#{franAccount}	,#{franEndate}	,#{franInsdate}
+	     		,#{franInedate}	,#{franZip}		,#{franAdd1}
+	     		,#{franAdd2}	,#{franXmap}	,#{franYmap}
+	     		,#{franState}
+	     )
+</update>
+
+<!-- 카카오맵 조회 -->
+<select id="selectMap" resultType="hashmap" parameterType="PagingVO">
+	SELECT A.FRAN_ID, FRAN_NAME, FRAN_XMAP, FRAN_YMAP
+      FROM FRAN A LEFT OUTER JOIN OWNER B ON(A.OWNER_ID=B.OWNER_ID)
+                  LEFT OUTER JOIN CHECKING C ON(A.FRAN_ID=C.FRAN_ID)
+                  LEFT OUTER JOIN LGU D ON(A.FRAN_STATE=D.LGU_ID)
+	  <include refid="searchFrag"/>
+</select>
+
+<!-- 데이터테이블 조회 -->
+<select id="selectFranDataTable" resultMap="frMap">
+	SELECT *
+	 FROM(
+			SELECT ROWNUM RNUM, LIST.*
+		    from(
+		        SELECT FRAN_NAME		,B.OWNER_NAME		,A.FRAN_ID
+		               ,FRAN_TEL		,D.LGU_NAME AS FRAN_STATE
+		               ,NVL(TRUNC(SUM(c.CHECK_INDI+c.CHECK_FRAN+c.CHECK_FOOD)/3),0) AS SCORE
+		               ,FRAN_ADD1 ||' '||  FRAN_ADD2 AS FRAN_ADD1
+		          FROM FRAN A LEFT OUTER JOIN OWNER B ON(A.OWNER_ID=B.OWNER_ID)
+		                      LEFT OUTER JOIN CHECKING C ON(A.FRAN_ID=C.FRAN_ID)
+		                      LEFT OUTER JOIN LGU D ON(A.FRAN_STATE=D.LGU_ID)
+		     <include refid="searchFrag"/>
+		         GROUP BY FRAN_NAME		,B.OWNER_NAME	,FRAN_LOCA
+		                 ,FRAN_STATE	,FRAN_TEL		,FRAN_ADD1
+		                 ,FRAN_ADD2		, A.FRAN_ID		,D.LGU_NAME
+		         )LIST
+		     
+	      )
+</select>
+
+
+<!-- 일반회원단 - 가맹점 조회 -->
+<select id="franList" resultType="FranVO">
+select fran_id, fran_name, fran_loca, fran_tel fran_state, fran_add1, fran_add2,
+        fran_sttime, fran_entime, fran_bsttime, fran_bentime
+from fran
+where fran_state = 'FR101'
+</select>
+
+<!-- 일반회원단 - 가맹점 페이징 갯수: 페이징을 위함 -->
+<select id="totalPage" resultType="int">
+select CEIL(count(fran_id)/4) as totalNum
+from fran
+where fran_state = 'FR101'
+</select>
+
+<!-- 일반회원단 - 가맹점 조회 + 페이징-->
+<select id="franListPage" resultType="FranVO">
+<![CDATA[ select seq,fran_id, fran_name, fran_loca, fran_tel, fran_state, fran_add1, fran_add2,
+        fran_sttime, fran_entime, fran_bsttime, fran_bentime
+from (
+    select rownum as seq, fran_id, fran_name, fran_loca, fran_tel, fran_state, fran_add1, fran_add2,
+        fran_sttime, fran_entime, fran_bsttime, fran_bentime
+    from ( 
+            select *
+            from fran
+            where fran_state = 'FR101'
+            order by fran_id )
+    )
+where seq >#{startNum} and seq<=#{endNum} ]]>
+</select> 
+
+
+<!-- 일반회원단 - 특정가맹점의 영업시간 -->
+<select id="franTimeInfo" resultType="FranVO">
+select fran_id, fran_sttime, fran_entime, fran_bsttime, fran_bentime, fran_name, fran_tel
+from fran
+where fran_id=#{franId}
+</select>
+
+
+
+
+</mapper>

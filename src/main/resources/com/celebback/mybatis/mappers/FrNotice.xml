@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.board.frNotice.dao.FrNoticeDAO">
+
+	<sql id="searchFrag">
+		<trim prefix="AND">
+        	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	        	<choose>
+					<when test="simpleCondition.searchType eq 'postTitle'">
+						INSTR(POST_TITLE, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'postContent'">
+						INSTR(POST_CONTENT, #{simpleCondition.searchWord}) > 0
+					</when>			    
+					<otherwise>
+						   (INSTR(POST_TITLE, #{simpleCondition.searchWord}) > 0
+						OR INSTR(POST_CONTENT, #{simpleCondition.searchWord}) > 0)
+					</otherwise>    		
+	        	</choose>
+        	</if>
+        </trim>
+	</sql>
+
+	<sql id="searchDateFrag">
+		<trim prefix="AND">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchStartDate) and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchEndDate)">
+				POST_DATE BETWEEN #{simpleCondition.searchStartDate} AND (TO_DATE(#{simpleCondition.searchEndDate}) + (INTERVAL '1' DAY))
+			</if>
+		</trim>
+	</sql>
+		
+	<sql id="searchFranNameFrag">
+		<trim prefix="AND">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchFranName)">
+				<choose>
+					<when test="simpleCondition.searchFranName neq 'none'">
+						FRAN_ID = #{simpleCondition.searchFranName}
+					</when>
+				</choose>
+			</if>
+		</trim>
+	</sql>
+	
+	<select id="selectFranId" parameterType="String" resultType="String">
+		SELECT FRAN_ID
+		FROM FRAN
+		WHERE OWNER_ID = #{ownerId}
+	</select>
+	
+	<select id="selectFranName" parameterType="String" resultType="String">
+		SELECT FRAN_NAME
+		FROM FRAN
+		WHERE FRAN_ID = #{franId}
+	</select>
+	
+	<select id="selectTotalRecord" parameterType="com.celebback.vo.PagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM FRANNOTICE
+		WHERE FRAN_ID = #{franId}
+		<include refid="searchDateFrag" />
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectFrNoticeList" parameterType="com.celebback.vo.PagingVO" resultType="com.celebback.vo.FrNoticeVO">
+		SELECT C.*
+		FROM (
+			SELECT B.*, ROWNUM RNUM2
+			FROM (
+				SELECT A.*, ROWNUM RNUM
+				FROM (
+					SELECT
+					    FRANNOTICE_NO,
+					    POST_TITLE,
+					    TO_CHAR(POST_DATE, 'YYYY-MM-DD') POST_DATE
+					FROM
+					    FRANNOTICE
+					WHERE FRAN_ID = #{franId}
+					<include refid="searchDateFrag" />
+					<include refid="searchFrag" />
+					ORDER BY FRANNOTICE_NO ASC
+				) A
+				ORDER BY RNUM DESC
+			) B
+			ORDER BY RNUM2 DESC
+		) C
+        WHERE RNUM2 BETWEEN #{startRow} AND #{endRow}
+	</select>
+
+	<select id="selectFrNotice" parameterType="int" resultType="com.celebback.vo.FrNoticeVO">
+		SELECT FRANNOTICE_NO, POST_TITLE, TO_CHAR(POST_DATE, 'YYYY-MM-DD') POST_DATE, POST_CONTENT
+		FROM FRANNOTICE
+		WHERE FRANNOTICE_NO = #{frannoticeNo}
+	</select>
+	
+	<select id="selectTotalRecordForHead" parameterType="com.celebback.vo.PagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM FRANNOTICE
+		WHERE FRAN_ID IS NOT NULL
+		<include refid="searchDateFrag" />
+		<include refid="searchFranNameFrag" />
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectFranNameList" resultType="hashMap">
+		SELECT FRAN_ID "franId", FRAN_NAME "franName"
+		FROM FRAN
+	</select>
+	
+	<select id="selectFrNoticeListForHead" parameterType="com.celebback.vo.PagingVO" resultType="com.celebback.vo.FrNoticeVO">
+		SELECT C.*
+		FROM (
+			SELECT B.*, ROWNUM RNUM2
+			FROM (
+				SELECT A.*, ROWNUM RNUM
+				FROM (
+                    SELECT D.*, E.FRAN_NAME
+                    FROM (
+                        SELECT
+                            FRANNOTICE_NO,
+                            POST_TITLE,
+                            TO_CHAR(POST_DATE, 'YYYY-MM-DD') POST_DATE,
+                            FRAN_ID
+                        FROM
+                            FRANNOTICE
+                        WHERE FRAN_ID IS NOT NULL
+                        <include refid="searchDateFrag" />
+                        <include refid="searchFranNameFrag" />
+                        <include refid="searchFrag" />
+                        ORDER BY FRANNOTICE_NO ASC
+                    ) D, FRAN E
+                    WHERE D.FRAN_ID = E.FRAN_ID
+				) A
+				ORDER BY RNUM DESC
+			) B
+			ORDER BY RNUM2 DESC
+		) C
+        WHERE RNUM2 BETWEEN #{startRow} AND #{endRow}	
+	</select>
+	
+	<select id="selectFrNoticeForHead" parameterType="int" resultType="com.celebback.vo.FrNoticeVO">
+		SELECT A.FRANNOTICE_NO, A.POST_TITLE, TO_CHAR(A.POST_DATE, 'YYYY-MM-DD') POST_DATE, A.POST_CONTENT, B.FRAN_NAME
+		FROM FRANNOTICE A, FRAN B
+		WHERE A.FRANNOTICE_NO = #{frannoticeNo}
+        AND A.FRAN_ID = B.FRAN_ID
+	</select>
+	
+	<select id="selectFrNoticeListForMember" parameterType="com.celebback.vo.PagingVO" resultType="com.celebback.vo.FrNoticeVO">
+		SELECT C.*
+		FROM (
+			SELECT B.*, ROWNUM RNUM2
+			FROM (
+				SELECT A.*, ROWNUM RNUM
+				FROM (
+                    SELECT D.*, E.FRAN_NAME
+                    FROM (
+                        SELECT
+                            FRANNOTICE_NO,
+                            POST_TITLE,
+                            TO_CHAR(POST_DATE, 'YYYY-MM-DD') POST_DATE,
+                            FRAN_ID
+                        FROM
+                            FRANNOTICE
+                        WHERE FRAN_ID = #{franId}
+                        <include refid="searchFrag" />
+                        ORDER BY FRANNOTICE_NO DESC
+                    ) D, FRAN E
+                    WHERE D.FRAN_ID = E.FRAN_ID
+				) A
+				ORDER BY RNUM DESC
+			) B
+			ORDER BY RNUM2 DESC
+		) C
+        WHERE RNUM2 BETWEEN #{startRow} AND #{endRow}	
+	</select>
+	
+	<select id="selectTotalRecordForMember" parameterType="com.celebback.vo.PagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM FRANNOTICE
+		WHERE FRAN_ID = #{franId}
+		<include refid="searchFrag" />
+	</select>
+	
+	<insert id="insertFrNotice" parameterType="com.celebback.vo.FrNoticeVO">
+		<selectKey resultType="int" keyProperty="frannoticeNo" order="BEFORE">
+			SELECT NVL(MAX(FRANNOTICE_NO),0)+1 FROM FRANNOTICE
+		</selectKey>
+		INSERT INTO FRANNOTICE (
+		    FRAN_ID,
+		    POST_TITLE,
+		    POST_CONTENT,
+		    FRANNOTICE_NO
+		) VALUES (
+		    #{franId, jdbcType=VARCHAR},
+			#{postTitle, jdbcType=VARCHAR},
+			#{postContent, jdbcType=CLOB},
+			#{frannoticeNo, jdbcType=NUMERIC}
+		)
+	</insert>
+	
+	<update id="updateFrNotice" parameterType="com.celebback.vo.FrNoticeVO">
+		UPDATE FRANNOTICE
+		SET POST_TITLE = #{postTitle, jdbcType=VARCHAR},
+			POST_CONTENT = #{postContent, jdbcType=CLOB}
+		WHERE FRANNOTICE_NO = #{frannoticeNo}
+	</update>
+	
+	<delete id="deleteFrNotice" parameterType="int">
+		DELETE FROM FRANNOTICE
+		WHERE FRANNOTICE_NO = #{frannoticeNo}
+	</delete>
+</mapper>

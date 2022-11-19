@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.reserve">
+
+	<select id="myUnusedCpn" resultType="MyCpnVO">
+		select a.MYCPN_ID, a.CPN_ID, a.MYCPN_ENDATE, b.CPN_NAME, b.CPN_CONTENT,
+		b.MENU_ID, C.LGU_NAME
+		from mycpn a, cpn b, lgu c
+		where a.MEM_ID = #{memId}
+		and a.cpn_id = b.cpn_id
+		and b.cpn_lgu = c.lgu_id
+		and a.MYCPN_USE ='N'
+		and a.MYCPN_ENDATE > SYSDATE
+		order by A.MYCPN_ENDATE
+	</select>
+
+
+	<insert id="resvSave" parameterType="ResvInfoVO">
+		<selectKey resultType="String" keyProperty="resvId"
+			order="BEFORE">
+			SELECT 'RV'||TO_CHAR(SYSDATE, 'YYYYMMDD')||'-'||((RVI2) + 1)
+			FROM(
+			SELECT MAX(RSVI), case when MAX(RSVI) is NULL THEN 0
+			else MAX(RSVI)
+			END AS RVI2
+
+			FROM (
+			SELECT TO_NUMBER(SUBSTR(RESV_ID, 12)) AS RSVI
+			FROM RESV
+			WHERE SUBSTR(RESV_ID, 3, 8) = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+			)
+		</selectKey>
+
+		insert into resv (RESV_ID,
+		SIT_ID,FRAN_ID,RESV_PCNT,RESV_TIME,RESV_DATE,RESV_STATE,MEM_ID,PAYALL_YN,RESV_ACC_DATE)
+		values (#{resvId}, #{selectSit},#{franId},#{people}, #{time},
+		TO_DATE(#{resvDate}), 'ST12', #{memId}, #{payallYn}, SYSDATE)
+
+	</insert>
+
+	<select id="getMorderId" resultType="String">
+		SELECT
+		'OR'||TO_CHAR(SYSDATE, 'YYYYMMDD')||'-'||((MOR2) + 1)
+		FROM(
+		SELECT MAX(ORI), case when MAX(ORI) is NULL THEN 0
+		else MAX(ORI)
+		END AS MOR2
+		FROM (
+		SELECT TO_NUMBER(SUBSTR(MORDER_ID, 12)) AS ORI
+		FROM MORDER
+		WHERE SUBSTR(MORDER_ID, 3, 8) = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		)
+		)
+	</select>
+	<insert id="morderSave" parameterType="ResvInfoVO">
+		insert into morder (MORDER_ID, RESV_ID, SIT_ID, FRAN_ID, MENU_ID,
+		MORDER_QTY, MORDER_PRICE, MORDER_DATE, PCNT)
+		values
+		(#{morderId},#{resvId},#{selectSit},#{franId},#{menuId},#{morderQty},#{morderPrice},#{resvDate},#{people})
+	</insert>
+
+	<insert id="paySave" parameterType="ResvInfoVO">
+		insert into pay(morder_id, pay_cost, pay_date, mycpn_id, pay_pg)
+		values (#{morderId}, #{totalPrice}, SYSDATE, #{mycpnId}, #{payPg})
+	</insert>
+
+	<insert id="paySave2" parameterType="ResvInfoVO">
+		insert into pay(morder_id, pay_cost, pay_date, mycpn_id, pay_pg)
+		values (#{morderId}, #{totalPrice}, SYSDATE, '','')
+	</insert>
+
+	<update id="useCpn" parameterType="ResvInfoVO">
+		update mycpn set MYCPN_USE = 'Y' where MYCPN_ID = #{mycpnId}
+	</update>
+
+	<update id="updateStamp" parameterType="ResvInfoVO">
+		update mem set MEM_STPCNT = (MEM_STPCNT+0) where MEM_ID=#{memId}
+	</update>
+
+	<select id="reserveSitList" resultType="String">
+		select a.sit_id
+		from sit a
+		inner join resv b
+		on a.sit_id = B.SIT_ID
+		where a.fran_id = #{franId}
+		and b.resv_date = TO_DATE(#{resvDate})
+		and b.resv_time = #{time}
+		and b.resv_state not in ('ST14')
+	</select>
+
+</mapper>

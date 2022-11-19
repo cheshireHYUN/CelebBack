@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.member.mypage.dao.MypageDAO">
+
+	<resultMap type="com.celebback.vo.NotificationVO" id="notificationMap" autoMapping="true">
+		<id column="NOTI_NO" property="notiNo" />
+		<association property="frnotice" javaType="com.celebback.vo.FrNoticeVO" autoMapping="true"></association>
+		<association property="fran" javaType="com.celebback.vo.FranVO" autoMapping="true"></association>
+		<association property="wish" javaType="com.celebback.vo.WishVO" autoMapping="true"></association>
+	</resultMap>
+	
+	<select id="selectReserveRemainDate" parameterType="String" resultType="com.celebback.vo.ReserveVO">
+		SELECT B.FRAN_NAME, MIN(A.RT) "remainDate"
+		FROM
+		(
+		    SELECT FRAN_ID, TO_NUMBER(TO_DATE(RESV_DATE, 'YYYY-MM-DD') - TO_DATE(SYSDATE, 'YYYY-MM-DD')) AS RT
+		    FROM RESV
+		    WHERE MEM_ID = #{memId}
+		    AND RESV_DATE > SYSDATE
+		    AND RESV_STATE = 'ST13'
+		    ) A, FRAN B
+		WHERE A.FRAN_ID = B.FRAN_ID
+		GROUP BY B.FRAN_NAME
+	</select>
+	
+	<select id="selectMemName" parameterType="String" resultType="com.celebback.vo.MemVO2">
+		SELECT MEM_NAME, MEM_GRADE
+		FROM MEM
+		WHERE MEM_ID = #{memId}
+	</select>
+
+	<select id="selectNotificationList" parameterType="String" resultType="com.celebback.vo.NotificationVO">
+		SELECT
+			A.NOTI_NO, A.FRANNOTICE_NO,
+		    B.POST_TITLE, TO_CHAR(B.POST_DATE, 'YYYY-MM-DD') POST_DATE,
+		    C.FRAN_NAME, C.FRAN_ID
+		FROM NOTIFICATIONS A INNER JOIN FRANNOTICE B ON (A.FRANNOTICE_NO = B.FRANNOTICE_NO)
+		            INNER JOIN FRAN C ON (B.FRAN_ID = C.FRAN_ID)
+		WHERE A.READ_AT IS NULL
+		AND A.MEM_ID = #{memId}
+		ORDER BY A.NOTI_NO DESC
+	</select>
+	
+	<select id="totalNotifications" parameterType="String" resultType="int">
+		SELECT COUNT(*)
+		FROM NOTIFICATIONS
+		WHERE READ_AT IS NULL
+		AND MEM_ID = #{memId}
+	</select>
+	
+	<update id="updateNotification" parameterType="com.celebback.vo.NotificationVO">
+		UPDATE NOTIFICATIONS
+		SET READ_AT = SYSDATE
+		WHERE FRANNOTICE_NO = #{frannoticeNo}
+		AND MEM_ID = #{memId}
+	</update>
+
+	<select id="selectInsertCount" parameterType="String" resultType="int">
+		SELECT COUNT(FRNOTICE_NO)
+		FROM (
+		        SELECT FRANNOTICE_NO AS FRNOTICE_NO
+		        FROM WISH A INNER JOIN FRANNOTICE B ON (A.FRAN_ID = B.FRAN_ID)
+		        WHERE MEM_ID = #{memId}
+		        MINUS
+		        SELECT FRANNOTICE_NO
+		        FROM NOTIFICATIONS
+		        WHERE MEM_ID = #{memId}
+		)
+	</select>
+
+	<insert id="insertNotification" parameterType="com.celebback.vo.NotificationVO">
+		<selectKey resultType="int" keyProperty="notiNo" order="BEFORE">
+			SELECT NVL(MAX(NOTI_NO),0)+1 FROM NOTIFICATIONS
+		</selectKey>
+		INSERT INTO NOTIFICATIONS (
+		    NOTI_NO,
+		    MEM_ID,
+		    CREATED_AT,
+		    FRANNOTICE_NO
+		) VALUES (
+		    #{notiNo, jdbcType=NUMERIC},
+		    #{memId},
+		    (
+		        SELECT POST_DATE
+		        FROM FRANNOTICE
+		        WHERE FRANNOTICE_NO = (
+		            SELECT MIN(FRNOTICE_NO)
+                    FROM (
+                            SELECT FRANNOTICE_NO AS FRNOTICE_NO
+                            FROM WISH A INNER JOIN FRANNOTICE B ON (A.FRAN_ID = B.FRAN_ID)
+                            WHERE MEM_ID = #{memId}
+                            MINUS
+                            SELECT FRANNOTICE_NO
+                            FROM NOTIFICATIONS
+                            WHERE MEM_ID = #{memId}
+                    )
+		        )
+		    ),
+		    (
+		        SELECT MIN(FRNOTICE_NO)
+                FROM (
+                        SELECT FRANNOTICE_NO AS FRNOTICE_NO
+                        FROM WISH A INNER JOIN FRANNOTICE B ON (A.FRAN_ID = B.FRAN_ID)
+                        WHERE MEM_ID = #{memId}
+                        MINUS
+                        SELECT FRANNOTICE_NO
+                        FROM NOTIFICATIONS
+                        WHERE MEM_ID = #{memId}
+                )
+		    )
+		)
+	</insert>
+	
+	<delete id="deleteNullRow" parameterType="String">
+		DELETE FROM NOTIFICATIONS
+		WHERE MEM_ID = #{memId}
+		AND FRANNOTICE_NO IS NULL
+	</delete>
+	
+	<select id="selectReserveList" parameterType="String" resultType="com.celebback.vo.ReserveVO">
+		SELECT A.RESV_ID, 
+		       B.FRAN_NAME, 
+		       A.RESV_PCNT, A.RESV_TIME, 
+		       TO_CHAR(A.RESV_DATE, 'YYYY-MM-DD') RESV_DATE,
+		       A.RESV_STATE, C.LGU_NAME, 
+		       TO_CHAR(A.RESV_ACC_DATE, 'YYYY-MM-DD HH24:MI:SS') RESV_ACC_DATE,
+		       A.MEM_ID
+		FROM RESV A, FRAN B, LGU C
+		WHERE MEM_ID = #{memId}
+		AND A.FRAN_ID = B.FRAN_ID
+		AND A.RESV_STATE = C.LGU_ID
+		ORDER BY RESV_ID DESC
+	</select>
+	
+	<select id="selectReserve" parameterType="String" resultType="com.celebback.vo.ReserveVO">
+		SELECT A.RESV_ID, A.SIT_ID, 
+		       B.FRAN_NAME, 
+		       A.RESV_PCNT, A.RESV_TIME, 
+		       TO_CHAR(A.RESV_DATE, 'YYYY-MM-DD') RESV_DATE,
+		       A.RESV_STATE, C.LGU_NAME, 
+		       TO_CHAR(A.RESV_ACC_DATE, 'YYYY-MM-DD HH24:MI:SS') RESV_ACC_DATE,
+		       A.MEM_ID
+		       ,(SELECT DISTINCT E.PAY_PG 
+                   FROM MORDER D INNER JOIN PAY E ON ( E.MORDER_ID = D.MORDER_ID) 
+                  WHERE D.RESV_ID=#{resvId}) AS PAY_PG
+		FROM RESV A, FRAN B, LGU C
+		WHERE A.RESV_ID = #{resvId}
+		AND A.FRAN_ID = B.FRAN_ID
+		AND A.RESV_STATE = C.LGU_ID
+	</select>
+	
+	<select id="selectReserveMenuList" parameterType="String" resultType="com.celebback.vo.ReserveVO">
+		SELECT A.RESV_ID,
+		       B.MENU_NAME, A.MORDER_QTY, B.MENU_PRICE,
+		       (A.MORDER_QTY * B.MENU_PRICE) AS SUBTOTAL
+		FROM MORDER A, MENU B
+		WHERE A.RESV_ID = #{resvId}
+		AND A.MENU_ID = B.MENU_ID
+	</select>
+	
+	<select id="selectSubtotalSum" parameterType="String" resultType="int">
+		SELECT SUM(SUBTOTAL) "subtotalSum"
+		FROM
+			(
+			SELECT (A.MORDER_QTY * B.MENU_PRICE) AS SUBTOTAL
+			FROM MORDER A, MENU B
+			WHERE A.RESV_ID = #{resvId}
+			AND A.MENU_ID = B.MENU_ID
+			)
+	</select>
+	
+	<select id="selectBill" parameterType="String" resultType="int">
+		SELECT NVL(MAX(PAY_COST), 0)
+		FROM PAY
+		WHERE MORDER_ID = (
+		                    SELECT MORDER_ID
+		                    FROM MORDER
+		                    WHERE RESV_ID = #{resvId}
+		                    GROUP BY MORDER_ID
+		                  )
+	</select>
+	
+	<update id="updateReserveStatus" parameterType="String">
+		UPDATE RESV
+		    SET
+		        RESV_STATE = 'ST14'
+		WHERE
+		    RESV_ID = #{resvId}
+	</update>
+	
+	<delete id="deleteMorder" parameterType="String">
+		DELETE FROM MORDER
+		WHERE
+		    RESV_ID = #{resvId}
+	</delete>
+	
+	<!-- STAMP -->
+	<select id="selectStamp" parameterType="String" resultType="com.celebback.vo.MemVO2">
+		SELECT MEM_STPCNT, STP_CPN
+		FROM MEM
+		WHERE MEM_ID = #{memId}
+	</select>
+	
+	<update id="updateStampToResv">
+		UPDATE RESV
+		SET STAMP_YN = 'Y'
+		WHERE RESV_ID IN 
+		(
+		    SELECT RESV_ID
+		    FROM RESV
+		    <![CDATA[ 
+		    WHERE RESV_DATE < SYSDATE 
+		    ]]>
+		    AND RESV_STATE = 'ST13'
+		    AND PAYALL_YN = 'Y'
+		)
+	</update>
+	
+	<select id="selectUpdateStamp" parameterType="String" resultType="int">
+		SELECT COUNT(*)
+		FROM RESV
+		WHERE MEM_ID = #{memId}
+		AND STAMP_YN = 'Y'
+		AND STPCNT_YN IS NULL
+	</select>
+	
+	<update id="updateStampToMem" parameterType="String">
+		UPDATE MEM
+		SET MEM_STPCNT = (
+			(
+				SELECT MEM_STPCNT
+				FROM MEM
+				WHERE MEM_ID = #{memId}
+			)
+				+
+			(
+				SELECT COUNT(*)
+				FROM RESV
+				WHERE MEM_ID = #{memId}
+				AND STAMP_YN = 'Y'
+				AND STPCNT_YN IS NULL
+			)
+		)
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateResvStpcnt" parameterType="String">
+		UPDATE RESV
+		SET STPCNT_YN = 'Y'
+		WHERE MEM_ID = #{memId}
+		AND STAMP_YN = 'Y'
+	</update>
+	
+	<insert id="insertOneStampCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP30100001',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP30100001')
+		)
+	</insert>
+	
+	<insert id="insertFiveStampCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP30100002',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP30100002')
+		)
+	</insert>
+	
+	<insert id="insertTenStampCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP30100003',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP30100003')
+		)
+	</insert>
+	
+	<update id="updateOneStampCoupon" parameterType="String">
+		UPDATE MEM
+		SET STP_CPN = 1
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateFiveStampCoupon" parameterType="String">
+		UPDATE MEM
+		SET STP_CPN = 5
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateTenStampCoupon" parameterType="String">
+		UPDATE MEM
+		SET STP_CPN = 10,
+			MEM_STPCNT = (SELECT MEM_STPCNT
+						  FROM MEM
+						  WHERE MEM_ID = #{memId}) - 10 
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateReviewCountPlusToMem" parameterType="String">
+		UPDATE MEM
+		SET MEM_RVCNT = (
+			(
+				SELECT MEM_RVCNT
+				FROM MEM
+				WHERE MEM_ID = #{memId}
+			)
+				+
+			1
+		)
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateReviewCountMinusToMem" parameterType="String">
+		UPDATE MEM
+		SET MEM_RVCNT = (
+			(
+				SELECT MEM_RVCNT
+				FROM MEM
+				WHERE MEM_ID = #{memId}
+			)
+				-
+			1
+		)
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<select id="selectReviewCount" parameterType="String" resultType="com.celebback.vo.MemVO2">
+		SELECT MEM_RVCNT, SUBSTR(SYSDATE, -2) "nowDate"
+		FROM MEM
+		WHERE MEM_ID = #{memId}
+	</select>
+	
+	<insert id="insertPrepCelebCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP20100001',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP20100001')
+		)
+	</insert>
+	
+	<insert id="insertGeneralCelebCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP20100002',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP20100002')
+		)
+	</insert>
+	
+	<insert id="insertSuperCelebCoupon" parameterType="String">
+		INSERT INTO MYCPN (
+		    MYCPN_ID,
+		    CPN_ID,
+		    MEM_ID,
+		    MYCPN_GETDATE,
+		    MYCPN_ENDATE
+		) VALUES (
+		    MYCPN_ID_SEQ.NEXTVAL,
+		    'CP20100003',
+		    #{memId},
+		    SYSDATE,
+		    (SELECT CPN_DATE
+		    FROM CPN
+		    WHERE CPN_ID = 'CP20100003')
+		)
+	</insert>
+	
+	<update id="updateMemberGradePrepCeleb" parameterType="String">
+		UPDATE MEM
+		SET MEM_GRADE = '예비셀럽'
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateMemberGradeGeneralCeleb" parameterType="String">
+		UPDATE MEM
+		SET MEM_GRADE = '일반셀럽'
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<update id="updateMemberGradeSuperCeleb" parameterType="String">
+		UPDATE MEM
+		SET MEM_GRADE = '슈퍼셀럽'
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+	<select id="selectMycouponList" parameterType="String" resultType="com.celebback.vo.MyCpnVO">
+		SELECT A.MYCPN_ID, A.CPN_ID, 
+			   B.CPN_NAME, B.CPN_CONTENT, 
+			   TO_CHAR(A.MYCPN_GETDATE, 'YYYY-MM-DD') MYCPN_GETDATE,
+			   TO_CHAR(A.MYCPN_ENDATE, 'YYYY-MM-DD') MYCPN_ENDATE, 
+			   C.LGU_NAME
+		FROM MYCPN A INNER JOIN CPN B ON (A.CPN_ID = B.CPN_ID)
+		        INNER JOIN LGU C ON (B.CPN_LGU = C.LGU_ID)
+		WHERE MEM_ID = #{memId}
+		AND MYCPN_USE = 'N'
+	</select>
+	
+	<select id="selectMyReviewList" parameterType="String" resultType="com.celebback.vo.ReviewVO">
+		SELECT C.FRAN_NAME, TO_CHAR(B.RESV_DATE, 'YYYY-MM-DD') RESV_DATE,
+		       A.REVIEW_SN, TO_CHAR(A.REVIEW_DATE, 'YYYY-MM-DD') REVIEW_DATE, A.REVIEW_STAR, A.REVIEW_CONTENT
+		FROM REVIEW A, RESV B, FRAN C
+		WHERE A.MEM_ID = #{memId}
+		AND A.FRAN_ID = C.FRAN_ID
+		AND A.RESV_ID = B.RESV_ID
+	</select>
+	
+	<select id="selectFranWishList" parameterType="String" resultType="com.celebback.vo.WishVO">
+		SELECT FRAN_ID
+		FROM WISH
+		WHERE MEM_ID = #{memId}
+	</select>
+	
+	<insert id="insertFranWish" parameterType="com.celebback.vo.WishVO">
+		INSERT INTO WISH (
+		    FRAN_ID,
+		    MEM_ID,
+		    WISH_DATE
+		) VALUES (
+		    #{franId},
+		    #{memId},
+		    SYSDATE
+		)
+	</insert>
+	
+	<delete id="deleteFranWish" parameterType="com.celebback.vo.WishVO">
+		DELETE FROM WISH
+		WHERE
+		    FRAN_ID = #{franId}
+		    AND MEM_ID = #{memId}
+	</delete>
+	
+	<select id="selectFranInfo" resultType="com.celebback.vo.FranVO">
+		SELECT
+		    FRAN_ID,
+		    FRAN_NAME,
+		    FRAN_TEL,
+		    FRAN_STATE,
+		    FRAN_ADD1,
+		    FRAN_ADD2,
+		    FRAN_STTIME,
+		    FRAN_ENTIME,
+		    FRAN_BSTTIME,
+		    FRAN_BENTIME
+		FROM
+		    FRAN
+		WHERE
+			FRAN_STATE = 'FR101'
+	</select>
+	
+	<select id="selectMyAccount" parameterType="String" resultType="com.celebback.vo.MemVO2">
+		SELECT
+		    MEM_ID,
+		    MEM_PW,
+		    MEM_NAME,
+		    TO_CHAR(MEM_BIR, 'YYYY-MM-DD') MEM_BIR,
+		    MEM_TEL,
+		    MEM_MAIL
+		FROM
+		    MEM
+		WHERE MEM_ID = #{memId}
+	</select>
+</mapper>

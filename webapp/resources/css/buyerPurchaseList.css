@@ -1,0 +1,11 @@
+.pagingArea {
+	justify-content: center;
+	margin-bottom: 0px;
+}
+.pagination {
+	margin-top: 0px !important;
+}
+
+#searchUI {
+	margin-bottom: 8px;
+}

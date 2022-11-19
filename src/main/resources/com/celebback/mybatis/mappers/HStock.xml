@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.prodstock.dao.ProdStockDAO">
+
+<!-- 검색 조건용 -->
+<sql id="searchFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.buyerprodName)">
+				     INSTR(BUYERPROD_NAME, #{detailCondition.buyerprodName}) > 0
+			</if>
+		</trim>
+</sql>
+<!-- 부족 재고용 -->
+<sql id="shortFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.hstockQty)">
+				     <![CDATA[HSTOCK_QTY <= #{detailCondition.hstockQty}]]>
+			</if>
+		</trim>
+</sql>
+
+
+<!-- 거래처 전체 조회 -->
+<select id="selectProdStockList" parameterType="PagingVO" resultType="HStockVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+  FROM (
+		SELECT DISTINCT C.BUYERPROD_NAME, C.BUYERPROD_ID, D.BUYER_NAME,
+		<![CDATA[TO_CHAR((A.HEADIN_RELEASE), '999,999,999')]]> AS HEADIN_RELEASE,
+		B.HSTOCK_QTY
+		  FROM HEADIN A, HSTOCK B, BUYERPROD C, BUYER D
+		 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+		   AND A.BUYERPROD_ID = C.BUYERPROD_ID
+		   AND C.BUYER_ID = D.BUYER_ID
+		  <include refid="searchFrag" />
+		  <include refid="shortFrag" />
+		 ORDER BY B.HSTOCK_QTY
+	    ) A
+	) B
+    <![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+</select>
+
+<!-- 페이징 처리를 위한 레코드 수 조회 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+  SELECT COUNT(*) 
+    FROM (
+		  SELECT DISTINCT C.BUYERPROD_NAME, C.BUYERPROD_ID, D.BUYER_NAME, A.HEADIN_RELEASE, B.HSTOCK_QTY
+			FROM HEADIN A, HSTOCK B, BUYERPROD C, BUYER D
+		   WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+			 AND A.BUYERPROD_ID = C.BUYERPROD_ID
+			 AND C.BUYER_ID = D.BUYER_ID
+			 <include refid="searchFrag" />
+		     <include refid="shortFrag" />
+		   ORDER BY B.HSTOCK_QTY 
+		 )
+</select>
+
+<select id="selectProdStockDetail" parameterType="string" resultType="ProdHeadOutDetailVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+    FROM (
+		SELECT A.FRAN_NAME, C.HEADOUT_QTY, 
+			   TO_CHAR((C.HEADOUT_DATE), 'YYYY-MM-DD') AS HEADOUT_DATE
+		  FROM FRAN A, BUYERPROD B, HEADOUT C, FRORDER D
+		 WHERE D.FRORDER_NO = C.FRORDER_NO
+		   AND D.FRAN_ID = A.FRAN_ID
+		   AND C.BUYERPROD_ID = B.BUYERPROD_ID
+		   AND B.BUYERPROD_ID = #{buyerprodId}
+		 ORDER BY C.HEADOUT_DATE DESC
+	    ) A
+	) B
+</select>
+
+
+ 
+</mapper>

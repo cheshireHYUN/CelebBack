@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.member.shoplist.dao.ShopDAO">
+
+	<select id="selectReviewPossibleList" parameterType="com.celebback.vo.ReviewVO" resultType="com.celebback.vo.ReserveVO">
+		SELECT A.RESV_ID, TO_CHAR(B.RESV_DATE, 'YYYY-MM-DD') RESV_DATE, ((TO_DATE(RESV_DATE,'YYYY-MM-DD') + 7)-TO_DATE(SYSDATE,'YYYY-MM-DD')) "reviewRemainDate"
+		FROM 
+		(
+		    SELECT RESV_ID
+		    FROM RESV
+		    <![CDATA[ 
+		    WHERE RESV_DATE < SYSDATE
+		    AND RESV_DATE + 7 > SYSDATE
+		    ]]>
+		    AND RESV_STATE = 'ST13'
+		    AND PAYALL_YN = 'Y'
+		    AND MEM_ID = #{memId}
+		    AND FRAN_ID = #{franId}
+		    MINUS
+		    SELECT RESV_ID
+		    FROM REVIEW
+		    WHERE MEM_ID = #{memId}
+		    AND FRAN_ID = #{franId}
+		) A INNER JOIN RESV B ON (A.RESV_ID = B.RESV_ID)
+		ORDER BY RESV_DATE
+	</select>
+
+	<insert id="insertReview" parameterType="com.celebback.vo.ReviewVO">
+		<selectKey resultType="int" keyProperty="reviewSn" order="BEFORE">
+			SELECT NVL(MAX(REVIEW_SN), 0)+1 FROM REVIEW
+		</selectKey>
+		INSERT INTO review (
+		    review_sn,
+		    fran_id,
+		    mem_id,
+		    review_content,
+		    review_star,
+		    resv_id
+		) VALUES (
+		    #{reviewSn, jdbcType=NUMERIC}
+			, #{franId, jdbcType=VARCHAR}
+			, #{memId, jdbcType=VARCHAR}
+			, #{reviewContent, jdbcType=VARCHAR}
+			, #{reviewStar, jdbcType=NUMERIC}
+			, #{resvId, jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<select id="selectreviewList" parameterType="String" resultType="com.celebback.vo.ReviewVO">
+		SELECT
+		    REVIEW_SN,
+		    FRAN_ID,
+		    MEM_ID,
+		    REVIEW_CONTENT,
+		    REVIEW_STAR,
+		    TO_CHAR(REVIEW_DATE, 'YYYY-MM-DD') REVIEW_DATE,
+		    RESV_ID
+		FROM
+		    REVIEW
+		WHERE FRAN_ID = #{franId}
+		ORDER BY REVIEW_SN DESC
+	</select>
+	
+	<select id="selectFranStarAvg" parameterType="String" resultType="int">
+		SELECT NVL(ROUND(AVG(REVIEW_STAR)), 0) "starAvg"
+		FROM REVIEW
+		WHERE FRAN_ID = #{franId}
+	</select>
+	
+	<delete id="deleteReview" parameterType="int">
+		DELETE FROM REVIEW
+		WHERE
+		    REVIEW_SN = #{reviewSn}
+	</delete>
+</mapper>

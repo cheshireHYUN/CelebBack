@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.buyerpurchase.dao.BuyerPurchaseDAO">
+
+<!-- 검색 조건용 -->
+<sql id="searchFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.buyerName)">
+				     INSTR(BUYER_NAME, #{detailCondition.buyerName}) > 0
+			</if>
+		</trim>
+</sql>
+<!-- 날짜검색 -->
+<sql id="dateFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.searchStartDate)
+					and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.searchEndDate)">
+				     HEADIN_DATE BETWEEN #{detailCondition.searchStartDate} AND #{detailCondition.searchEndDate}
+			</if>
+		</trim>
+</sql>
+
+<!-- 거래처 매입 목록 전체 조회 (입고날짜순으로 정렬) -->
+<select id="selectBuyerPurchaseList" parameterType="PagingVO" resultType="HeadinVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+  FROM (
+		SELECT C.BUYER_NAME, A.BUYERPROD_NAME, 
+			   <![CDATA[TO_CHAR((A.BUYERPROD_PRICE), '999,999,999')]]> AS BUYERPROD_PRICE, 
+				B.HEADIN_QTY, 
+			   <![CDATA[TO_CHAR((A.BUYERPROD_PRICE * B.HEADIN_QTY), '999,999,999')]]> AS TOTAL_PRICE, 
+			    B.HEADIN_RELEASE,
+			   <![CDATA[TO_CHAR((B.HEADIN_DATE), 'YYYY-MM-DD')]]> AS HEADIN_DATE
+		  FROM BUYERPROD A, HEADIN B, BUYER C
+		 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+		   AND A.BUYER_ID = C.BUYER_ID
+		   <include refid="searchFrag" />
+		   <include refid="dateFrag" />
+		   ORDER BY HEADIN_DATE DESC
+	    ) A
+	) B
+    <![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+</select> 
+
+<!-- 페이징 처리를 위한 레코드 수 조회 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+SELECT COUNT(*)
+FROM (SELECT C.BUYER_NAME, A.BUYERPROD_NAME, A.BUYERPROD_PRICE, B.HEADIN_QTY, 
+			   (A.BUYERPROD_PRICE * B.HEADIN_QTY) AS TOTAL_PRICE, B.HEADIN_RELEASE, B.HEADIN_DATE 
+		  FROM BUYERPROD A, HEADIN B, BUYER C
+		 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+		   AND A.BUYER_ID = C.BUYER_ID
+		   <include refid="searchFrag" />
+		   <include refid="dateFrag" />
+		   ORDER BY HEADIN_DATE)
+</select>
+
+<!-- 거래처 매입내역 추가 -->
+<insert id="createBuyerPurchase">
+	INSERT INTO HEADIN
+		(
+		HEADIN_DATE, BUYERPROD_ID, HEADIN_QTY, HEADIN_RELEASE
+		)
+	VALUES
+		(
+		#{headinDate,jdbcType=DATE}, 
+		#{buyerprodId,jdbcType=VARCHAR}, 
+		#{headinQty,jdbcType=INTEGER},
+		#{headinRelease,jdbcType=INTEGER}
+		)
+</insert>
+
+<!-- 입고시 재고 업데이트 -->
+<update id="updateHstock">
+	MERGE INTO HSTOCK
+	USING DUAL
+	   ON (BUYERPROD_ID = #{buyerprodId})
+	WHEN MATCHED THEN
+	    UPDATE SET HSTOCK_QTY = <![CDATA[HSTOCK_QTY + #{headinQty}]]>
+	WHEN NOT MATCHED THEN
+	    INSERT (BUYERPROD_ID, HSTOCK_QTY) 
+	    VALUES (#{buyerprodId}, #{headinQty})
+</update>
+
+<!-- 옵션 거래처 조회용 -->
+<select id="selectOptionList" resultType="HeadinVO">
+SELECT BUYER_ID, BUYER_NAME
+  FROM BUYER
+ ORDER BY BUYER_ID
+</select>
+
+<!-- 옵션 거래처 제품내역 조회용 -->
+<select id="selectOptionList2" resultType="HeadinVO">
+SELECT A.BUYERPROD_ID, A.BUYERPROD_NAME
+  FROM BUYERPROD A, BUYER B
+ WHERE A.BUYER_ID = B.BUYER_ID
+   AND A.BUYER_ID = #{buyerId, jdbcType=VARCHAR}
+</select>
+
+<!-- 입고단가 조회용 -->
+<select id="selectBuyerprodPrice" resultType="int">
+SELECT BUYERPROD_PRICE
+  FROM BUYERPROD
+ WHERE BUYERPROD_ID = #{buyerprodId, jdbcType=VARCHAR}
+</select>
+
+</mapper>

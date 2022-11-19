@@ -1,0 +1,48 @@
+/*
+* [[개정이력(Modification Information)]]
+* 수정일       수정자      수정내용
+* ----------  ---------  -----------------
+* 2022. 8. 9.      정아영      최초작성
+* Copyright (c) 2022 by DDIT All right reserved
+*/
+@charset "UTF-8";
+.pagination {
+	justify-content: center;
+}
+.page-item.active .page-link {
+    z-index: 3;
+    color: #fff;
+    background-color: #333;
+}
+.page-item:not(:first-child) .page-link {
+    border-radius: 3px;
+    margin: 0 2px;
+    padding: 8px 16px;
+}
+.page-link {
+    position: relative;
+    display: block;
+    color: #000000;
+    text-decoration: none;
+    background-color: #fff0;
+    border: #dee2e600;
+}
+.page-link:hover {
+  z-index: 2;
+  color: #333;
+  background-color: #d5d5d5;
+  border-color: #dee2e600;
+}
+.page-link:focus {
+  z-index: 3;
+  color: #333;
+  background-color: #e9ecef;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0);
+}
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff0;
+  border-color: #dee2e600;
+}

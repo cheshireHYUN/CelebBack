@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.frcheck.dao.frCheckDAO">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 8. 19.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+<resultMap type="CheckingVO" id="chkingMap" autoMapping="true">
+	<id property="checkDate" column="CHECK_DATE"/>
+	<id property="franId" column="FRAN_ID"/>
+	<collection property="chkFail" javaType="java.util.List" ofType="ChkFailVO" autoMapping="true"/>
+</resultMap>
+
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'ownerName'">
+								INSTR((SELECT OWNER_NAME FROM FRAN B INNER JOIN OWNER C ON (C.OWNER_ID=B.OWNER_ID) WHERE B.FRAN_ID = A.FRAN_ID),#{simpleCondition.searchWord}) > 0 ) 
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'franName'">
+								INSTR((SELECT FRAN_NAME FROM FRAN D WHERE A.FRAN_ID = D.FRAN_ID),#{simpleCondition.searchWord}) > 0
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			( INSTR((SELECT FRAN_NAME FROM FRAN D WHERE A.FRAN_ID = D.FRAN_ID),#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       	    INSTR((SELECT OWNER_NAME FROM FRAN B INNER JOIN OWNER C ON (C.OWNER_ID=B.OWNER_ID) WHERE B.FRAN_ID = A.FRAN_ID),#{simpleCondition.searchWord}) > 0 )
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+		<trim prefix="AND (" suffix=")">
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchSelectArr)">
+				<foreach collection="simpleCondition.searchSelectArr" item="arr" separator="OR">
+					<if test="arr eq 'receive'">
+<!-- 					trunc( (check_indi + check_fran + check_food) / 3) >= 6 -->
+			<![CDATA[	check_indi >=6
+						and check_fran >=6
+						and check_food >=6
+						]]>
+					</if>
+					<if test="arr eq 'outgoing'">
+<!-- 					trunc( (check_indi + check_fran + check_food) / 3) < 6 -->
+			<![CDATA[	
+						check_indi <6
+						or check_fran <6
+						or check_food <6
+			]]> 
+					</if>
+				</foreach>
+			</if>
+			</trim>
+		<trim prefix="AND (" suffix=")">
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchStartDate)
+					and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchEndDate)">
+                    CHECK_DATE BETWEEN #{simpleCondition.searchStartDate} AND #{simpleCondition.searchEndDate}
+					
+			</if>
+			</trim>
+</sql>
+
+
+<!-- 가맹점주 메인 페이지 - 점검내역 조회 -->
+<select id="selectfrMainCheckList" parameterType="String" resultMap="chkingMap">
+	SELECT 	OWNER_ID		,A.FRAN_ID		,CHECK_FOOD
+		   ,CHECK_INDI		,CHECK_FRAN		
+		   ,TO_CHAR(CHECK_DATE,'YYYY.MM.DD') AS CHECK_DATE
+	  FROM CHECKING A LEFT OUTER JOIN FRAN B ON (B.FRAN_ID = A.FRAN_ID)
+	 WHERE B.OWNER_ID=#{authName}
+   	   AND CHECK_INDI IS NOT NULL
+	 ORDER BY CHECK_DATE DESC
+</select>
+
+<!-- 가맹점점검관리 조회 -->
+<select id="selectfrCheckList" parameterType="PagingVO" resultType="CheckingVO">
+	SELECT *
+	  FROM (
+	  		SELECT ROWNUM RNUM, LIST.*
+	  		  FROM (
+	  		  		SELECT   FRAN_ID
+					        ,(SELECT FRAN_NAME FROM FRAN WHERE A.FRAN_ID = FRAN_ID) AS FRAN_NAME
+					        ,TRUNC((CHECK_INDI + CHECK_FRAN + CHECK_FOOD)/3) AS TOTAL_SCORE
+					        ,CHECK_INDI
+					        ,CHECK_FRAN
+					        ,CHECK_FOOD
+					        ,TO_CHAR(CHECK_DATE,'YYYY-MM-DD') AS CHECK_DATE
+             <![CDATA[      ,CASE WHEN check_indi <6 or check_fran <6 or check_food <6
+                                  THEN '불통'
+                                  WHEN  check_indi >=6 and check_fran >=6 and check_food >=6
+                                  THEN '통과'
+                                 END AS STATE]]> 
+					  FROM CHECKING A
+			  <include refid="searchFrag"/>
+	  		  )LIST
+	  )
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 가맹점검관리 페이징 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM (
+	  		SELECT ROWNUM RNUM, LIST.*
+	  		  FROM (
+	  		  		SELECT   FRAN_ID
+					        ,(SELECT FRAN_NAME FROM FRAN WHERE A.FRAN_ID = FRAN_ID) AS FRAN_NAME
+					        ,TRUNC((CHECK_INDI + CHECK_FRAN + CHECK_FOOD)/3) AS TOTAL_SCORE
+					        ,CHECK_INDI
+					        ,CHECK_FRAN
+					        ,CHECK_FOOD
+					        ,TO_CHAR(CHECK_DATE,'YYYY-MM-DD') AS CHECK_DATE
+					  FROM CHECKING A
+	  		  )LIST
+	  )
+</select>
+
+<!-- 가맹점점검관리 캘린더 -->
+<select id="selectCalendar" resultType="hashmap">
+	SELECT FRAN_ID
+  		  ,(SELECT FRAN_NAME FROM FRAN WHERE A.FRAN_ID = FRAN_ID) AS "title"
+	      ,TO_CHAR(CHECK_DATE,'YYYY-MM-DD') AS "start"
+ 	  FROM CHECKING A
+</select>
+
+<!-- 점검 결과 등록 -->
+<insert id="insertChecking" parameterType="CheckingVO" >
+		<selectKey resultType="String" keyProperty="franId" order="BEFORE">
+			SELECT FRAN_ID
+			  FROM FRAN
+			 WHERE FRAN_NAME=#{franName}
+		</selectKey>
+	 INSERT INTO checking (
+		    CHECK_DATE,
+		    FRAN_ID,
+		    CHECK_INDI,
+		    CHECK_FRAN,
+		    CHECK_FOOD
+		) VALUES (
+			TO_DATE(#{checkDate})
+			,#{franId}
+			,#{checkIndi}
+			,#{checkFran}
+			,#{checkFood}
+		)
+</insert>
+<!-- 점검 결과 등록 - 점검 미달 등록 ( eduSch, ChkFail) -->
+<insert id="insertEduSchChkFail" parameterType="CheckingVO">
+		<selectKey resultType="hashmap" keyColumn="FRAN_ID,EDU_SN"  keyProperty="franId,eduSn" order="BEFORE">
+			SELECT A.FRAN_ID, B.EDU_SN
+			  FROM (SELECT FRAN_ID
+					  FROM FRAN
+					 WHERE FRAN_NAME=#{franName}) A
+			      ,(SELECT TO_CHAR(MAX(EDU_SN)+1) AS EDU_SN
+			          FROM EDUSCH )B
+		</selectKey>
+	 INSERT ALL
+		INTO EDUSCH (
+		    EDU_SN,
+		    EDU_ID,
+		    EDU_DATE,
+		    EDU_LOCA,
+		    EDU_FRAN
+		) VALUES (
+		    #{eduSn}
+		    ,'IC111'
+		    ,to_date(#{checkDate}) + 31
+		    ,'위생교육센터'
+		    ,#{franId}
+		)
+		INTO CHKFAIL (
+		    CHECK_DATE,
+		    FRAN_ID,
+		    EDU_SN,
+		    EDU_ID
+		) VALUES (
+			TO_DATE(#{checkDate})
+		    ,#{franId}
+		    ,#{eduSn}
+		    ,'IC111'
+		)
+    SELECT * FROM DUAL
+</insert>
+
+<!-- 점검 미달 가맹점 공문 발송 -->
+<insert id="insertFrPaper" parameterType="FrPaperVO">
+		<selectKey keyColumn="OWNER_ID,PAPER_SN" keyProperty="ownerId,paperSn" resultType="hashmap" order="BEFORE">
+			SELECT A.OWNER_ID, to_char(B.PAPER_SN) PAPER_SN
+			  FROM (SELECT OWNER_ID
+					  FROM FRAN
+					 WHERE FRAN_NAME=#{franName})A
+			      ,(SELECT NVL(MAX(TO_NUMBER(PAPER_SN))+1,1) as PAPER_SN FROM FRPAPER)B
+		</selectKey>
+	INSERT INTO FRPAPER (
+			     PAPER_SN
+			    ,PAPER_ID
+			    ,OWNER_ID
+			) VALUES (
+				 #{paperSn}
+				,'PA006'
+				,#{ownerId}
+			)
+</insert>
+
+</mapper>

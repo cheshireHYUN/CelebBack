@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.frfee">
+
+<!-- 
+<insert id="createFee">
+insert into fee(fee_id, FRAN_ID, fee_sdate, fee_fruse, fee_royal, fee_cost, fee_tplus, fee_tminus, fee_overdue, fee_cpn) 
+values(
+        'CB2022901' ||'-'||TO_CHAR(sysdate,'yyyyMM')||'01',
+        
+        'CB2022901',
+        
+        TO_CHAR(sysdate,'yyyy/MM')||'/01',
+         
+        500000,
+        
+        (
+            select total*0.05 as royal
+            from(
+            select sum(pay_cost) as total
+            from pay
+            where (pay_date >= #{sdate} and pay_date < #{edate})
+            and morder_id in (
+                                    select distinct b.morder_id
+                                    from resv a
+                                    right outer join morder b
+                                    on (a.resv_id = b.resv_id)
+                                    where a.fran_id='CB2022901' 
+                                    and (a.resv_date >= #{sdate} and a.resv_date < #{edate})
+                                    and a.resv_state not in ('ST14')
+                                    or b.resv_id is null
+                                )
+            )),
+        
+        (select sum(frorder_price) as total_frorder_price
+        from frorder
+        where fran_id='CB2022901'
+        and FRORDER_STATE = 'ST15'
+        and (frorder_date >= #{sdate} and frorder_date < #{edate})),
+        
+        (select sum(sum_per) as trade_plus_sum
+        from (
+        select distinct b.buyerprod_id, b.sum_qty, a.headin_release, sum_qty * headin_release as sum_per
+        from headin a
+        inner join (
+                        select buyerprod_id, sum(resp_qty) as sum_qty
+                        from trade
+                        where req_fran = 'CB2022901'
+                        and (req_date>= #{sdate} and req_date < #{edate}) 
+                        and resp_qty is not null 
+                        group by buyerprod_id
+                     ) b
+            on a.buyerprod_id = b.buyerprod_id ) ),     
+            
+        (select sum(sum_per) as trade_minus_sum
+        from (
+        select distinct b.buyerprod_id, b.sum_qty, a.headin_release, sum_qty * headin_release as sum_per
+        from headin a
+        inner join (
+                        select buyerprod_id, sum(resp_qty) as sum_qty
+                        from trade
+                        where resp_fran = 'CB2022901'
+                        and (req_date>= #{sdate} and req_date < #{edate}) 
+                        and resp_qty is not null 
+                        group by buyerprod_id
+                     ) b
+        on a.buyerprod_id = b.buyerprod_id)),
+        
+        0,
+        
+        (select sum(lgu_name)
+            from (
+            select distinct a.mycpn_id, b.lgu_name
+            from(
+                    select distinct a.MYCPN_ID, b.cpn_lgu
+                    from (
+                            select distinct a.mycpn_id, b.cpn_id
+                            from(
+                                select distinct a.mycpn_id
+                                from pay a
+                                inner join morder b
+                                on (a.morder_id = b.morder_id)
+                                where (a.pay_date >= #{sdate} and a.pay_date < #{edate})
+                                and a.morder_id in (
+                                                    select b.morder_id
+                                                    from resv a
+                                                    right outer join morder b
+                                                    on (a.resv_id = b.resv_id)
+                                                    where a.fran_id='CB2022901' 
+                                                    and (a.resv_date >= #{sdate} and a.resv_date < #{edate})
+                                                    or b.resv_id is null
+                                                    ) 
+                                ) a
+                            inner join mycpn b
+                            on(a.mycpn_id = b.mycpn_id)
+                    ) a
+                    inner join cpn b
+                    on (a.cpn_id = b.cpn_id)
+            ) a
+            inner join lgu b
+            on(a.cpn_lgu = b.lgu_id)
+        ))
+
+       ) 
+</insert> -->
+
+<select id="readFee" resultType="FrFeeVO">
+select fee_id, fee_sdate, fee_fruse, fee_royal, fee_cost, fee_tplus, fee_tminus, fee_overdue, fee_cpn
+from fee
+where fran_id= #{franId}
+        and fee_sdate = #{feeSdate}
+
+union all 
+
+select null,null,null,null,null,null,null,null,null
+from dual
+where not exists (
+                    select fee_id, fee_sdate, fee_fruse, fee_royal, fee_cost, fee_tplus, fee_tminus, fee_overdue, fee_cpn
+                    from fee
+                    where fran_id= #{franId}
+                            and fee_sdate = #{feeSdate}
+                    )
+</select>
+
+<select id="feePay" resultType="String">
+select TO_CHAR(feepay_date,'YYYY-MM-DD')
+from feepay
+where fee_id=#{feeId}
+</select>
+
+<!-- 디테일  -->
+<select id="feeRoyal" resultType="FrFeeDetailVO">
+<![CDATA[
+select 'feeRoyal' as target, sum(pay_cost) as v_sum, TO_CHAR(pay_date,'YYYY-MM-DD') as v_date
+from pay
+where (pay_date >= #{sdate} and pay_date < #{edate})
+and morder_id in (
+                        select distinct b.morder_id
+                        from resv a
+                        right outer join morder b
+                        on (a.resv_id = b.resv_id)
+                        where a.fran_id=#{franId}
+                        and (a.resv_date >= #{sdate} and a.resv_date < #{edate})
+                        and a.resv_state not in ('ST14')
+                        or b.resv_id is null
+                    )
+group by pay_date
+ order by v_date
+ ]]>
+</select>
+
+<select id="feeCost" resultType="FrFeeDetailVO">
+<![CDATA[
+select 'feeCost' as target, sum(b.dtorder_qty)as v_cnt , sum(TO_NUMBER(b.dtorder_price)) as v_sum, b.dtorder_name as v_name
+from frorder a
+inner join dtorder b
+on(a.frorder_no = b.frorder_no)
+where a.fran_id=#{franId}
+and a.FRORDER_STATE = 'ST15'
+and (a.frorder_date >= #{sdate} and a.frorder_date < #{edate})
+group by b.buyerprod_id, b.dtorder_name
+ ]]>
+</select>
+
+<select id="feeTplus" resultType="FrFeeDetailVO">
+<![CDATA[
+select 'feeTplus' as target, a.lgu_name as v_name, b.sum_qty as v_cnt, TO_CHAR(b.req_date,'YYYY-MM-DD') as v_date, b.sum_per as v_sum
+from lgu a
+inner join (
+        select distinct b.buyerprod_id, b.sum_qty, b.req_date, sum_qty * headin_release as sum_per
+        from headin a
+        inner join (
+                        select buyerprod_id, sum(resp_qty) as sum_qty, req_date
+                        from trade
+                        where req_fran = #{franId}
+                        and (req_date>= #{sdate} and req_date < #{edate}) 
+                        and resp_qty is not null 
+                        group by buyerprod_id, req_date
+                     ) b
+            on a.buyerprod_id = b.buyerprod_id )b
+on a.lgu_id = b.buyerprod_id
+ ]]>
+</select>
+
+<select id="feeTminus" resultType="FrFeeDetailVO">
+<![CDATA[
+select 'feeTminus' as target, a.lgu_name as v_name, b.sum_qty as v_cnt, TO_CHAR(b.req_date,'YYYY-MM-DD') as v_date, b.sum_per as v_sum
+from lgu a
+inner join (
+        select distinct b.buyerprod_id, b.sum_qty, b.req_date, sum_qty * headin_release as sum_per
+        from headin a
+        inner join (
+                        select buyerprod_id, sum(resp_qty) as sum_qty, req_date
+                        from trade
+                        where resp_fran = #{franId}
+                        and (req_date>= #{sdate} and req_date < #{edate}) 
+                        and resp_qty is not null 
+                        group by buyerprod_id, req_date
+                     ) b
+            on a.buyerprod_id = b.buyerprod_id )b
+on a.lgu_id = b.buyerprod_id
+ ]]>
+</select>
+
+<select id="feeCpn" resultType="FrFeeDetailVO">
+<![CDATA[
+select 'feeCpn' as target, a.v_cnt, a.v_name, (b.lgu_name * a.v_cnt) as v_sum
+from(
+
+select count(a.MYCPN_ID)as v_cnt , b.cpn_name as v_name, b.cpn_lgu
+from (
+
+        select distinct a.mycpn_id, b.cpn_id
+        from(
+            select distinct a.mycpn_id
+            from pay a
+            inner join morder b
+            on (a.morder_id = b.morder_id)
+            where (a.pay_date >= #{sdate} and a.pay_date < #{edate})
+            and a.morder_id in (
+                                select b.morder_id
+                                from resv a
+                                right outer join morder b
+                                on (a.resv_id = b.resv_id)
+                                where a.fran_id=#{franId}
+                                and (a.resv_date >= #{sdate} and a.resv_date < #{edate})
+                                or b.resv_id is null
+                                ) 
+            ) a
+        inner join mycpn b
+        on(a.mycpn_id = b.mycpn_id)
+        
+) a
+inner join cpn b
+on (a.cpn_id = b.cpn_id)
+group by cpn_lgu,  b.cpn_name
+
+) a
+inner join lgu b
+on a.cpn_lgu = b.lgu_id
+ ]]>
+</select>
+
+<insert id="feePayOk" >
+	<selectKey keyProperty="feeId" order="BEFORE" resultType="String">
+		select fee_id
+		from fee
+		where fran_id = #{franId}
+		and fee_sdate = TO_DATE(#{feeSdate},'yyyy/mm/dd')
+	</selectKey>
+	
+	insert into feepay(fee_id,feepay_date) values(#{feeId},TO_DATE(#{feepayDate},'yyyy/mm/dd') )
+	
+</insert>
+
+
+</mapper>

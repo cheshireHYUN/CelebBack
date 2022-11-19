@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.frRepair.dao.FrRepairDAO">
+
+<!-- 프로시저 호출 -->
+<select id="plsql" statementType="CALLABLE">
+{call PROD_DB_BACKUP{ }}
+</select>
+
+
+<!-- 테이블명 전체 조회 -->
+<select id="selectTableName" resultType="String">
+	SELECT DISTINCT TABLE_NAME
+  	  FROM TABS
+</select>
+
+<!-- 테이블 DDL 조회 -->
+<select id="selectTableDDL" parameterType="String" resultType="BackupVO">
+<!-- 	SELECT  -->
+<!-- 	<foreach collection="array" item="tableName" index="idx"> -->
+<!-- 		<if test="idx eq 0"> -->
+<!-- 			dbms_metadata.get_ddl('TABLE', #{tableName}, 'TEAM1_202202F') -->
+<!-- 		</if> -->
+<!-- 		<if test="idx neq 0"> -->
+<!-- 		 	,dbms_metadata.get_ddl('TABLE', #{tableName}, 'TEAM1_202202F') -->
+<!-- 		</if> -->
+<!-- 	</foreach> -->
+<!-- 		  FROM DUAL -->
+
+<!-- SELECT (SELECT DISTINCT TABLE_NAME FROM COLS WHERE TABLE_NAME=#{tableName}) AS TABLE_NAME -->
+<!--       ,(SELECT DBMS_METADATA.GET_DDL('TABLE',#{tableName}, 'TEAM1_202202F') FROM DUAL) AS TABLE_DDL -->
+<!--   from DUAL A -->
+
+<!-- 	SELECT -->
+<!-- 		DBMS_METADATA.GET_DDL('TABLE', #{tableName}, 'TEAM1_202202F') -->
+<!-- 	         || -->
+<!-- 	    DBMS_METADATA.GET_DEPENDENT_DDL('COMMENT',#{tableName}) AS TABLE_DDL -->
+<!-- 	FROM DUAL -->
+
+	 SELECT CASE WHEN EXISTS (SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE TABLE_NAME=#{tableName})
+	             THEN DBMS_METADATA.GET_DDL('TABLE', #{tableName}, 'TEAM1_202202F')|| DBMS_METADATA.GET_DEPENDENT_DDL('COMMENT',#{tableName})
+	             WHEN NOT EXISTS (SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE TABLE_NAME=#{tableName})
+	             THEN DBMS_METADATA.GET_DDL('TABLE', #{tableName}, 'TEAM1_202202F')
+	         END AS TABLE_DDL
+	  FROM DUAL
+</select>
+
+<!-- 테이블 컬럼명 조회 -->
+<select id="selectColumnName" parameterType="String" resultType="String">
+	SELECT COLUMN_NAME
+	  FROM COLS
+	 WHERE TABLE_NAME=#{tableName}
+</select>
+
+<!-- 데이터 조회 -->
+<select id="selectData"	parameterType="String" resultType="hashmap">
+	SELECT *
+	  FROM ${tableName}
+</select>
+
+<!-- 기본키 조회 -->
+<select id="selectPk" parameterType="String" resultType="String">
+	SELECT DBMS_METADATA.GET_DEPENDENT_DDL('CONSTRAINT',#{tableName},'TEAM1_202202F','COMPATIBLE') SQL
+  	  FROM ALL_CONSTRAINTS 
+  	 WHERE TABLE_NAME = #{tableName}
+  	   AND OWNER='TEAM1_202202F' 
+  	   AND CONSTRAINT_TYPE IN ('C','U','P') 
+  	   AND ROWNUM=1
+</select>
+
+<!-- 외래키 조회 -->
+<select id="selectFk" parameterType="String" resultType="String">
+	SELECT DBMS_METADATA.GET_DEPENDENT_DDL('REF_CONSTRAINT',#{tableName},'TEAM1_202202F','COMPATIBLE') SQL
+	  FROM ALL_CONSTRAINTS
+	 WHERE TABLE_NAME=#{tableName}
+	   AND OWNER='TEAM1_202202F' 
+	   AND CONSTRAINT_TYPE='R' 
+	   AND ROWNUM=1
+</select>
+
+<!-- 시퀀스명 조회 -->
+<select id="selectSeqName" resultType="String">
+	SELECT SEQUENCE_NAME
+	  FROM all_sequences
+	 WHERE SEQUENCE_OWNER='TEAM1_202202F'
+</select>
+
+<!-- 시퀀스 DDL 조회 -->
+<select id="selectSeqDDL" parameterType="String" resultType="String">
+	SELECT DBMS_METADATA.GET_DDL('SEQUENCE', #{seqName}, 'TEAM1_202202F')
+	  FROM DUAL
+</select>
+
+<!-- 뷰명 조회 -->
+<select id="selectViewName" resultType="String">
+	SELECT VIEW_NAME
+	  FROM ALL_VIEWS
+	 WHERE OWNER='TEAM1_202202F'
+</select>
+
+<!-- 뷰 DDL 조회 -->
+<select id="selectViewDDL" parameterType="String" resultType="String">
+	SELECT DBMS_METADATA.GET_DDL('VIEW', #{viewName}, 'TEAM1_202202F')
+	  FROM DUAL
+</select>
+</mapper>

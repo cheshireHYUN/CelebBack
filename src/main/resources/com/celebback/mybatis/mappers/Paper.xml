@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.paper.dao.PaperDAO">
+
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 8. 16.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+
+<resultMap type="PaperVO" id="paperMap" autoMapping="true">
+	<id property="paperId" column="PAPER_ID"/>
+	<association property="attatch" javaType="AttatchVO" autoMapping="true"></association>
+	<collection property="frPaper" javaType="java.util.List" ofType="FrPaperVO" autoMapping="true"></collection>
+</resultMap>
+
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'paperName'">
+				       			INSTR(PAPER_NAME,#{simpleCondition.searchWord}) > 0 <!-- JAVA의 indexOf와 같음 --><!-- LIKE는 퍼포먼스가 떨어짐 --> 
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'paperContent'">
+				       			INSTR(PAPER_CONTENT,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 INSTR(PAPER_NAME,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(PAPER_CONTENT,#{simpleCondition.searchWord}) > 0
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+</sql>
+
+
+
+
+<!-- 공문 전체조회 -->
+<select id="selectPaperList" resultType="PaperVO" parameterType="PagingVO">
+	SELECT *
+	  FROM (
+		SELECT ROWNUM RNUM, A.*
+		  FROM(
+				SELECT PAPER_ID		,PAPER_NAME		,PAPER_CONTENT
+				  FROM PAPER
+				 ORDER BY PAPER_ID
+			   )A
+			<include refid="searchFrag"/>
+			)
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 공문 페이징 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM PAPER
+	  <include refid="searchFrag"/>
+</select>
+
+<!-- 공문 상세조회 -->
+<select id="selectPaper" parameterType="String" resultType="PaperVO">
+	SELECT *
+	  FROM PAPER
+	WHERE PAPER_ID=#{paperId}
+</select>
+
+<!-- 공문 수정 -->
+<update id="updatePaper" parameterType="PaperVO">
+	UPDATE paper
+	   SET
+	       PAPER_NAME=#{paperName}
+	      ,PAPER_CONTENT=#{paperContent}
+	 WHERE
+	       paper_id = #{paperId}
+</update>
+
+<!-- 공문 등록 -->
+<insert id="insertPaper" parameterType="PaperVO">
+	<selectKey resultType="String" keyProperty="paperId" order="BEFORE">
+		SELECT 'PA'||LPAD(PAPER_ID_SEQ.NEXTVAL, 3, '0') FROM DUAL
+	</selectKey>
+	INSERT INTO PAPER (
+	    PAPER_ID,
+	    PAPER_NAME,
+	    PAPER_CONTENT
+	) VALUES (
+	   	#{paperId}
+	    ,#{paperName}
+	    ,#{paperContent}
+	)
+</insert>
+
+<!-- 공문 삭제 -->
+<delete id="deletePaper" parameterType="String">
+	DELETE
+	  FROM PAPER
+	 WHERE PAPER_ID=#{paperId}
+</delete>
+
+<!-- 공문삭제 - child Record 삭제 -->
+<delete id="delBeforePaper" parameterType="String">
+	DELETE 
+	  FROM FRPAPER
+	 WHERE paper_id = #{paperId}
+</delete>
+
+<!-- 공문 발송 -->
+<insert id="sendPaper" parameterType="PaperVO">
+<!-- 		<selectKey keyColumn="PAPER_SN,OWNER_ID" keyProperty="paperSn,ownerId" resultType="hashmap" order="BEFORE"> -->
+		<selectKey keyColumn="PAPER_SN" keyProperty="paperSn" resultType="int" order="BEFORE">
+<!-- 		<selectKey resultType="int" keyProperty="paperSn" order="BEFORE"> -->
+<!-- 			SELECT A.PAPER_SN, B.OWNER_ID -->
+<!-- 			  fROM (SELECT NVL(MAX(TO_NUMBER(PAPER_SN))+1,1) AS PAPER_SN FROM FRPAPER) A -->
+<!-- 			      ,(SELECT OWNER_ID FROM FRAN WHERE FRAN_NAME=#{ownerIdList})B -->
+			SELECT NVL(MAX(TO_NUMBER(PAPER_SN))+1,1) AS PAPER_SN FROM FRPAPER
+			</selectKey>
+	INSERT ALL
+		<foreach collection="ownerIdList" item="ownerId" index="idx">
+			INTO FRPAPER (
+			     PAPER_SN
+			    ,PAPER_ID
+			    ,OWNER_ID
+			) VALUES (
+				 #{paperSn} + #{idx}
+				,#{paperId}
+				,#{ownerId}
+			)
+		</foreach>
+		SELECT * FROM DUAL
+</insert>
+
+<!-- 공문 첨부파일 저장 -->
+<insert id="insertAttatch" parameterType="PaperVO">
+		<selectKey resultType="int" keyProperty="startAttatchNo" order="BEFORE">
+			SELECT NVL(MAX(ATTATCH_NO), 0) + 1
+			FROM ATTATCH
+		</selectKey>
+		INSERT ALL
+			INTO ATTATCH (
+			    ATTATCH_ORGNAME,
+			    ATTATCH_SAVENAME,
+			    ATTATCH_MIME,
+			    ATTATCH_SIZE,
+			    TABLE_NAME,
+			    TABLE_PK,
+			    ATTATCH_NO
+			) VALUES (
+				#{attatch.attatchOrgname,jdbcType=VARCHAR}
+				, #{attatch.attatchSavename,jdbcType=VARCHAR}
+				, #{attatch.attatchMime,jdbcType=VARCHAR}
+				, #{attatch.attatchSize,jdbcType=NUMERIC}
+				, 'PAPER'
+				, #{paperId,jdbcType=VARCHAR}
+				, #{startAttatchNo}
+			)
+		SELECT * FROM DUAL
+</insert>
+
+<!-- 가맹점주 메인 페이지 - 공문조회 -->
+<select id="selectPaperListMain" parameterType="String" resultMap="paperMap">
+	SELECT A.PAPER_ID 		,OWNER_ID		,PAPER_SN
+		  ,TO_CHAR(PAPER_DATE,'YYYY.MM.DD') AS PAPER_DATE
+		  ,PAPER_NAME 		,PAPER_CONTENT
+	  FROM PAPER A LEFT OUTER JOIN FRPAPER B ON(A.PAPER_ID = B.PAPER_ID)
+	 WHERE B.OWNER_ID = #{authName}
+	   AND PAPER_DATE BETWEEN SYSDATE-31 AND SYSDATE
+ 	 ORDER BY PAPER_SN ASC
+</select>
+
+<!-- 가맹점주 ID 단순 조회 -->
+<select id="selectOwnerId" resultType="hashmap">
+	SELECT OWNER_ID "ownerId", FRAN_NAME "franName"
+	  FROM FRAN
+</select>
+
+</mapper> 

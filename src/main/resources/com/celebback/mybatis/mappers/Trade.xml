@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.fr.trade.dao.TradeDAO">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 8. 23.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+
+<sql id="searchFrag">
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'franName'">
+				       			INSTR((SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID = RESP_FRAN ) ,#{simpleCondition.searchWord}) > 0 
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'buyerprodName'">
+				       			INSTR((SELECT LGU_NAME FROM LGU WHERE LGU_ID = BUYERPROD_ID) ,#{simpleCondition.searchWord}) > 0
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 INSTR((SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID = RESP_FRAN ) ,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR((SELECT LGU_NAME FROM LGU WHERE LGU_ID = BUYERPROD_ID) ,#{simpleCondition.searchWord}) > 0
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+		<trim prefix="AND (" suffix=")">
+				  		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchSelectArr2)">
+				<foreach collection="simpleCondition.searchSelectArr2" item="arr" separator="OR">
+					 TRADE_STATE = #{arr}
+				</foreach>
+			</if>
+			</trim>
+		<trim prefix="AND (" suffix=")">
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchSelectArr)">
+				<foreach collection="simpleCondition.searchSelectArr" item="arr" separator="OR">
+					<if test="arr eq 'outgoing'">
+						REQ_FRAN = (SELECT FRAN_ID 
+										 FROM FRAN 
+										WHERE OWNER_ID=#{authName})
+					</if>
+					<if test="arr eq 'receive'">
+						RESP_FRAN = (SELECT FRAN_ID 
+										 FROM FRAN 
+										WHERE OWNER_ID=#{authName})
+					</if>
+				</foreach>
+			</if>
+			</trim>
+</sql>
+
+<!-- 트레이딩 검색 결과 조회 -->
+<select id="selectTradeSearchList" parameterType="PagingVO" resultType="TradeVO">
+	SELECT *
+	  FROM(
+		SELECT ROWNUM RNUM, LIST.*
+		FROM(
+			SELECT 	A.FRAN_ID
+				    , FRAN_NAME
+				    ,(SELECT OWNER_NAME FROM OWNER WHERE A.OWNER_ID=OWNER_ID) AS OWNER_NAME
+				    , FRAN_ADD1 || ' ' || FRAN_ADD2 AS FRAN_ADD1
+				    ,B.BUYERPROD_ID
+				    ,(SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID) AS BUYERPROD_NAME
+				    ,B.FRSTOCK_QTY
+				    ,FRAN_TEL
+			  FROM FRAN A INNER JOIN FRSTOCK B ON (A.FRAN_ID = B.FRAN_ID)
+			 WHERE INSTR((SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID),#{simpleCondition.searchWord}) > 0
+			   AND B.FRSTOCK_QTY>#{simpleCondition.searchWord2}
+               AND A.FRAN_ID != (SELECT FRAN_ID
+							      FROM FRAN A
+							     WHERE OWNER_ID=#{authName})
+			   AND FRAN_LOCA = (SELECT FRAN_LOCA
+							      FROM FRAN A
+							     WHERE OWNER_ID=#{authName})
+			 )LIST
+		 )
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 트레이딩 검색 결과 페이징 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM(
+		SELECT ROWNUM RNUM, LIST.*
+		FROM(
+			SELECT 	A.FRAN_ID
+				    , FRAN_NAME
+				    ,(SELECT OWNER_NAME FROM OWNER WHERE A.OWNER_ID=OWNER_ID) AS OWNER_NAME
+				    , FRAN_ADD1 || ' ' || FRAN_ADD2 AS FRAN_ADD1
+				    ,B.BUYERPROD_ID
+				    ,(SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID) AS BUYERPROD_NAME
+				    ,B.FRSTOCK_QTY
+				    ,FRAN_TEL
+			  FROM FRAN A INNER JOIN FRSTOCK B ON (A.FRAN_ID = B.FRAN_ID)
+			 WHERE INSTR((SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID),#{simpleCondition.searchWord}) > 0
+			   AND B.FRSTOCK_QTY>#{simpleCondition.searchWord2}
+               AND A.FRAN_ID != (SELECT FRAN_ID
+							      FROM FRAN A
+							     WHERE OWNER_ID=#{authName})
+			   AND FRAN_LOCA = (SELECT FRAN_LOCA
+							      FROM FRAN A
+							     WHERE OWNER_ID=#{authName})
+			 )LIST
+		 )
+</select>
+
+<!-- 트레이딩 요청 -->
+<insert id="insertTrade" parameterType="TradeVO">
+	<selectKey keyColumn="FRAN_ID,TRADE_NO" keyProperty="reqFran,tradeNo" resultType="hashmap" order="BEFORE">
+		SELECT A.FRAN_ID, B.TRADE_NO
+		  FROM (SELECT FRAN_ID 
+		  		  FROM FRAN 
+		  		 WHERE OWNER_ID=#{authName}) A
+			  ,(SELECT 'TRADE' || TO_CHAR(SYSDATE,'YYYYMMDD') || '-' || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(TRADE_NO,15)))+1,0),4,0) AS TRADE_NO
+		  		  FROM TRADE) B
+	</selectKey>
+	INSERT INTO TRADE (
+	    TRADE_NO,
+	    BUYERPROD_ID,
+	    REQ_FRAN,
+	    REQ_QTY,
+	    REQ_DATE,
+	    RESP_FRAN,
+	    TRADE_STATE
+	) VALUES (
+	    #{tradeNo},
+	    #{buyerprodId},
+	    #{reqFran},
+	    #{frstockQty},
+	    SYSDATE,
+	    #{respFran},
+	    'ST05'
+	)
+</insert>
+
+<!-- 트레이딩 요청 현황 - 발신 -->
+<select id="selectTradeReqList" parameterType="String" resultType="TradeVO">
+	SELECT TRADE_NO		  	,REQ_FRAN		,BUYERPROD_ID
+		  ,REQ_QTY			,RESP_FRAN		,RESP_QTY	
+		  ,TRADE_NOTE
+		  ,to_char(REQ_DATE,'YYYY-MM-DD') AS REQ_DATE
+    	  ,to_char(REQ_DATE,'hh:mm:ss') AS REQ_TIME
+		  ,(SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID) AS BUYERPROD_NAME
+		  ,(SELECT FRAN_NAME FROM FRAN B WHERE RESP_FRAN=B.FRAN_ID) AS FRAN_NAME
+		  ,SUBSTR((SELECT LGU_NAME FROM LGU WHERE TRADE_STATE = LGU_ID),-2) AS TRADE_STATE
+	  FROM TRADE
+	 WHERE TO_CHAR(REQ_DATE,'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')
+	   AND REQ_FRAN = (SELECT FRAN_ID
+	                     FROM FRAN
+	                    WHERE OWNER_ID=#{authName})
+	 ORDER BY TRADE_STATE DESC
+</select>
+
+<!-- 트레이딩 요청 현황 - 수신 -->
+<select id="selectTradeRespList" parameterType="String" resultType="TradeVO">
+	SELECT TRADE_NO		  	,REQ_FRAN		,BUYERPROD_ID
+		  ,REQ_QTY			,RESP_FRAN		,RESP_QTY	
+		  ,TRADE_NOTE
+		  ,TO_CHAR(REQ_DATE,'YYYY-MM-DD') AS REQ_DATE
+    	  ,TO_CHAR(REQ_DATE,'hh:mm:ss') AS REQ_TIME
+		  ,(SELECT LGU_NAME FROM LGU B WHERE BUYERPROD_ID=B.LGU_ID) AS BUYERPROD_NAME
+		  ,(SELECT FRAN_NAME FROM FRAN B WHERE REQ_FRAN=B.FRAN_ID) AS FRAN_NAME
+		  ,SUBSTR((SELECT LGU_NAME FROM LGU WHERE TRADE_STATE = LGU_ID),-2) AS TRADE_STATE
+	  FROM TRADE
+	 WHERE TO_CHAR(REQ_DATE,'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')
+	   AND RESP_FRAN = (SELECT FRAN_ID
+	                     FROM FRAN
+	                    WHERE OWNER_ID=#{authName})
+	 ORDER BY TRADE_STATE DESC
+</select>
+
+<!-- 트레이딩 요청 수락 -->
+<select id="updateTradeAccept" parameterType="TradeVO">
+	UPDATE TRADE
+	   SET  RESP_QTY = #{respQty}
+	       ,TRADE_STATE = 'ST06'
+	 WHERE
+	    TRADE_NO = #{tradeNo}
+</select>
+
+<!-- 트레이딩 요청 수락 - 요청 매장 재고 (+) -->
+<update id="updateReqAccept" parameterType="TradeVO">
+	MERGE
+	 INTO FRSTOCK
+	USING DUAL
+	   ON (fran_id=#{reqFran} AND BUYERPROD_ID=#{buyerprodId})
+	 WHEN MATCHED THEN
+	      UPDATE 
+	         SET FRSTOCK_QTY = FRSTOCK_QTY+#{respQty}
+	 WHEN NOT MATCHED THEN
+	      INSERT (fran_id, BUYERPROD_ID, FRSTOCK_QTY) 
+	      VALUES (#{reqFran}, #{buyerprodId}, #{respQty})
+</update>
+
+<!-- 트레이딩 요청 수락 - 응답 매장 재고 (-) -->
+<update id="updateRespAccept" parameterType="TradeVO">
+	<selectKey resultType="String" keyProperty="franId" order="BEFORE">
+		SELECT FRAN_ID
+		  FROM FRAN
+		 WHERE OWNER_ID=#{authName}
+	</selectKey>
+	UPDATE FRSTOCK
+	   SET FRSTOCK_QTY = FRSTOCK_QTY- #{respQty}
+	 WHERE FRAN_ID=#{franId}
+	   AND BUYERPROD_ID = #{buyerprodId}
+</update>
+
+<!-- 트레이딩 요청 거절-->
+<select id="updateTradeReject" parameterType="TradeVO">
+	UPDATE TRADE
+	   SET  TRADE_STATE = 'ST07'
+	   <if test="tradeNote neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(tradeNote)">
+			,TRADE_NOTE = #{tradeNote}
+		</if>
+	 WHERE
+	    TRADE_NO = #{tradeNo}
+</select>
+
+<!-- 트레이딩 요청 취소 -->
+<delete id="deleteTrade" parameterType="String">
+	DELETE TRADE
+	 WHERE TRADE_NO = #{tradeNo}
+</delete>
+
+<!-- 트레이딩 지도 조회 -->
+<select id="selectMap" parameterType="PagingVO" resultType="hashmap">
+	SELECT A.FRAN_ID, FRAN_NAME, FRAN_XMAP, FRAN_YMAP
+      FROM FRAN A LEFT OUTER JOIN OWNER B ON(A.OWNER_ID=B.OWNER_ID)
+                  LEFT OUTER JOIN CHECKING C ON(A.FRAN_ID=C.FRAN_ID)
+                  LEFT OUTER JOIN LGU D ON(A.FRAN_STATE=D.LGU_ID)
+     WHERE FRAN_LOCA = (SELECT FRAN_LOCA FROM FRAN WHERE OWNER_ID=#{authName})
+
+</select>
+
+<!-- 트레이딩 내역 조회 -->
+<select id="selectTradeList" parameterType="PagingVO" resultType="TradeVO">
+	SELECT *
+	  FROM (
+			SELECT ROWNUM RNUM, LIST.*
+			  FROM(
+				SELECT  CASE WHEN TRADE_STATE='ST05' THEN '요청중'
+				             WHEN TRADE_STATE='ST06' THEN '거래완료'
+				             WHEN TRADE_STATE='ST07' THEN '거절됨' END AS TRADE_STATE
+					    ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=RESP_FRAN) AS RESP_FRAN
+					    ,(SELECT OWNER_NAME FROM OWNER WHERE OWNER_ID=(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=RESP_FRAN)) AS OWNER_NAME
+					    ,(SELECT LGU_NAME FROM LGU WHERE LGU_ID = BUYERPROD_ID) AS BUYERPROD_NAME
+					    ,REQ_QTY,TRADE_NO, TRADE_NOTE
+					    ,TO_CHAR(REQ_DATE,'YYYY-MM-DD') AS REQ_DATE
+			            ,CASE WHEN REQ_FRAN=(SELECT FRAN_ID 
+			                                   FROM FRAN 
+			                                  WHERE OWNER_ID=#{authName}) THEN '발신'
+			                  WHEN RESP_FRAN=(SELECT FRAN_ID 
+			                                    FROM FRAN 
+			                                   WHERE OWNER_ID=#{authName}) THEN '수신' END AS STATE
+				   FROM TRADE
+				  WHERE 1=1
+				  <include refid="searchFrag"/>
+				   AND (REQ_FRAN = (SELECT FRAN_ID 
+									 FROM FRAN 
+									WHERE OWNER_ID=#{authName})
+			         OR RESP_FRAN = (SELECT FRAN_ID 
+									 FROM FRAN 
+									WHERE OWNER_ID=#{authName})
+									)
+                  ORDER BY REQ_DATE DESC
+                       	  ,TRADE_STATE DESC
+			       )LIST
+              )
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 트레이딩 내역 페이징 -->
+<select id="selectTotalRecord2" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM (
+			SELECT ROWNUM RNUM, LIST.*
+			  FROM(
+				SELECT  CASE WHEN TRADE_STATE='ST05' THEN '요청중'
+				             WHEN TRADE_STATE='ST06' THEN '거래완료'
+				             WHEN TRADE_STATE='ST07' THEN '거절됨' END AS TRADE_STATE
+					    ,(SELECT FRAN_NAME FROM FRAN WHERE FRAN_ID=RESP_FRAN) AS RESP_FRAN
+					    ,(SELECT OWNER_NAME FROM OWNER WHERE OWNER_ID=(SELECT OWNER_ID FROM FRAN WHERE FRAN_ID=RESP_FRAN)) AS OWNER_NAME
+					    ,(SELECT LGU_NAME FROM LGU WHERE LGU_ID = BUYERPROD_ID) AS BUYERPROD_NAME
+					    ,REQ_QTY,TRADE_NO, TRADE_NOTE
+					    ,TO_CHAR(REQ_DATE,'YYYY-MM-DD') AS REQ_DATE
+			            ,CASE WHEN REQ_FRAN=(SELECT FRAN_ID 
+			                                   FROM FRAN 
+			                                  WHERE OWNER_ID=#{authName}) THEN '발신'
+			                  WHEN RESP_FRAN=(SELECT FRAN_ID 
+			                                    FROM FRAN 
+			                                   WHERE OWNER_ID=#{authName}) THEN '수신' END AS STATE
+				   FROM TRADE
+				  WHERE 1=1
+				  <include refid="searchFrag"/>
+
+				   AND (REQ_FRAN = (SELECT FRAN_ID 
+									 FROM FRAN 
+									WHERE OWNER_ID=#{authName})
+			         OR RESP_FRAN = (SELECT FRAN_ID 
+									 FROM FRAN 
+									WHERE OWNER_ID=#{authName})
+									)
+                  ORDER BY REQ_DATE DESC
+                       	  ,TRADE_STATE DESC
+			       )LIST
+              )
+</select>
+
+<select id="selectFoodList" resultType="hashmap">
+	SELECT LGU_ID "lguId", LGU_NAME "lguName"
+	  FROM LGU
+	 WHERE LGU_HIGH = 'IN'
+</select>
+</mapper>

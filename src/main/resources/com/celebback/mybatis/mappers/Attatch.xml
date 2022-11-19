@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.board.notice.dao.AttatchDAO">
+	<!-- 한꺼번에 n개의 첨부파일 업로드할 수 있어야 함 -->
+	<insert id="insertAttatches" parameterType="com.celebback.vo.NoticeVO">
+	<!-- 첨부파일의 개수만큼 반복. 반복문의 대상이 되는 컬렉션이 필요. BoardVO 안에는 attatchList가 있자나 -->
+		<selectKey resultType="int" keyProperty="startAttatchNo" order="BEFORE">
+			SELECT NVL(MAX(ATTATCH_NO), 0) + 1
+			FROM ATTATCH
+		</selectKey>
+		INSERT ALL
+		<foreach collection="attatchList" item="attatch" index="idx">
+			INTO ATTATCH (
+			    ATTATCH_ORGNAME,
+			    ATTATCH_SAVENAME,
+			    ATTATCH_MIME,
+			    ATTATCH_SIZE,
+			    TABLE_NAME,
+			    TABLE_PK,
+			    ATTATCH_NO
+			) VALUES (
+				#{attatch.attatchOrgname,jdbcType=VARCHAR}
+				, #{attatch.attatchSavename,jdbcType=VARCHAR}
+				, #{attatch.attatchMime,jdbcType=VARCHAR}
+				, #{attatch.attatchSize,jdbcType=NUMERIC}
+				, 'HEADNOTICE'
+				, #{postNo,jdbcType=VARCHAR}
+				, #{startAttatchNo} + #{idx}
+			)
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+	
+	<select id="selectAttatch" parameterType="int" resultType="AttatchVO">
+		SELECT
+		    ATTATCH_ORGNAME,
+		    ATTATCH_SAVENAME,
+		    ATTATCH_MIME,
+		    ATTATCH_SIZE,
+		    TABLE_NAME,
+		    TABLE_PK,
+		    ATTATCH_NO
+		FROM ATTATCH 
+		WHERE ATTATCH_NO = #{attatchNo}
+	</select>
+
+	<delete id="deleteAttatches" parameterType="com.celebback.vo.NoticeVO">
+		DELETE FROM ATTATCH
+		WHERE ATTATCH_NO IN
+		<foreach collection="delAttNos" item="attatchNo" open="(" close=")" separator=",">
+			#{attatchNo}
+		</foreach>
+	</delete>
+	
+	<select id="selectAttatchPK" parameterType="String" resultType="AttatchVO">
+		SELECT
+		    ATTATCH_ORGNAME,
+		    ATTATCH_SAVENAME,
+		    ATTATCH_MIME,
+		    ATTATCH_SIZE,
+		    TABLE_NAME,
+		    TABLE_PK,
+		    ATTATCH_NO
+		FROM ATTATCH 
+		WHERE TABLE_PK = #{tablePk}
+	</select>
+</mapper>

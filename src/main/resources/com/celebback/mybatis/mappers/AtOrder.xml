@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.fr.atOrder.dao.AtOrderDAO">
+
+	<select id="selectAtOrderList" resultType="AtOrderVO">
+		SELECT *
+		  FROM (
+			    SELECT A.BUYERPROD_ID, A.BUYERPROD_NAME, 
+			           <![CDATA[TO_CHAR((A.BUYERPROD_PRICE*1.2), '999,999,999')]]> AS BUYERPROD_PRICE,
+			           B.ATORDER_QTY, 
+			           <![CDATA[TO_CHAR(((A.BUYERPROD_PRICE*1.2) * B.ATORDER_QTY), '999,999,999')]]> AS ORDER_PRICE,
+			           C.FRAN_ID, C.OWNER_ID
+			      FROM BUYERPROD A LEFT OUTER JOIN ATORDER B ON(A.BUYERPROD_ID = B.BUYERPROD_ID)
+			                       LEFT OUTER JOIN FRAN C ON(B.FRAN_ID = C.FRAN_ID)
+			      WHERE C.OWNER_ID= #{authName}
+			   )
+	     ORDER BY BUYERPROD_ID
+	</select>
+	
+<!-- 	ownerId로 franId를 구한다 -->
+	<select id="selectFranId" parameterType="String" resultType="String">
+		SELECT FRAN_ID
+		FROM FRAN
+		WHERE OWNER_ID = #{authName}
+	</select>
+	
+		
+	<update id="updateAtOrder" parameterType="hashMap">
+		UPDATE ATORDER
+		   SET ATORDER_QTY = #{atOrderQty, jdbcType=NUMERIC} 
+		 WHERE BUYERPROD_ID = #{buyerProdId, jdbcType=VARCHAR}
+		   AND FRAN_ID = #{authName, jdbcType=VARCHAR}
+	</update>
+
+
+</mapper>

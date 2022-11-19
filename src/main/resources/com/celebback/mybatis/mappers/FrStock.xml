@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.fr.frStock.dao.FrStockDAO">
+	
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND (" suffix=")">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+		       			INSTR(BUYERPROD_NAME,#{simpleCondition.searchWord}) > 0 
+			</if>
+		</trim>
+</sql>
+	
+	
+<select id="selectFrStockList" resultType="FrStockVO">
+SELECT B.BUYERPROD_ID, B.BUYERPROD_NAME, 
+        TO_CHAR((B.BUYERPROD_PRICE*1.2), '999,999,999') AS BUYERPROD_PRICE, 
+        A.ALL_FRANIN_QTY, C.ALL_FRANOUT_QTY, F.MON_FRANIN_QTY, G.MON_FRANOUT_QTY, E.ATORDER_QTY, D.FRSTOCK_QTY
+  FROM BUYERPROD B LEFT OUTER JOIN (SELECT BUYERPROD_ID, SUM(FRANIN_SUM) AS ALL_FRANIN_QTY
+                                      FROM (
+                                          SELECT A.*
+                                            FROM (
+                                                SELECT BUYERPROD_ID, SUM(FRANIN_QTY) AS FRANIN_SUM
+                                                  FROM FRANIN
+                                                 WHERE FRAN_ID = #{franId}
+                                                 GROUP BY BUYERPROD_ID
+                                                 UNION ALL
+                                                SELECT BUYERPROD_ID, SUM(RESP_QTY) AS TRADE_SUM
+                                                  FROM TRADE
+                                                 WHERE TRADE_STATE = 'ST06'
+                                                   AND REQ_FRAN = #{franId}
+                                                 GROUP BY BUYERPROD_ID
+                                                 ) A
+                                            )B
+                                      GROUP BY BUYERPROD_ID
+                                      ORDER BY BUYERPROD_ID
+                                      ) A ON (A.BUYERPROD_ID = B.BUYERPROD_ID)
+                     LEFT OUTER JOIN (SELECT BUYERPROD_ID, SUM(RESP_QTY) AS ALL_FRANOUT_QTY
+                                        FROM (
+                                             SELECT A.*
+                                               FROM (
+                                                    SELECT BUYERPROD_ID, SUM(RESP_QTY) AS RESP_QTY
+                                                      FROM TRADE                                       
+                                                     WHERE TRADE_STATE = 'ST06'
+                                                       AND RESP_FRAN = #{franId}
+                                                     GROUP BY BUYERPROD_ID
+                                                     UNION ALL
+                                                    SELECT BUYERPROD_ID, SUM(MORDER_QTY) AS MORDER_QTY
+                                                      FROM MORDER A LEFT OUTER JOIN MATERIAL B ON(A.MENU_ID = B.MENU_ID)                                                 
+                                                     WHERE FRAN_ID = #{franId}
+                                                     GROUP BY BUYERPROD_ID
+                                                     ORDER BY BUYERPROD_ID
+                                                  ) A
+                                             )B
+                                        GROUP BY BUYERPROD_ID
+                                        ORDER BY BUYERPROD_ID
+                                        ) C ON (C.BUYERPROD_ID = B.BUYERPROD_ID)
+                     LEFT OUTER JOIN (SELECT BUYERPROD_ID, SUM(FRSTOCK_QTY) AS FRSTOCK_QTY
+                                        FROM FRSTOCK
+                                       WHERE FRAN_ID = #{franId}
+                                       GROUP BY BUYERPROD_ID
+                                     ) D ON (D.BUYERPROD_ID = B.BUYERPROD_ID)
+                     LEFT OUTER JOIN (SELECT BUYERPROD_ID, ATORDER_QTY 
+                                        FROM ATORDER
+                                       WHERE FRAN_ID = #{franId}
+                                      ) E ON (E.BUYERPROD_ID = B.BUYERPROD_ID)
+                     LEFT OUTER JOIN (SELECT BUYERPROD_ID, SUM(FRANIN_SUM) AS MON_FRANIN_QTY
+                                        FROM (
+                                             SELECT A.*
+                                               FROM (
+                                                     SELECT BUYERPROD_ID, SUM(FRANIN_QTY) AS FRANIN_SUM
+                                                       FROM FRANIN
+                                                      WHERE TO_CHAR(FRANIN_DATE, 'YYYYMMDD') 
+                                                         	BETWEEN TO_CHAR(TRUNC(SYSDATE,'MM'),'YYYYMMDD') AND LAST_DAY(SYSDATE)
+                                                        AND FRAN_ID = #{franId}
+                                                      GROUP BY BUYERPROD_ID
+                                                      UNION ALL
+                                                      SELECT BUYERPROD_ID, SUM(RESP_QTY) AS TRADE_SUM
+                                                        FROM TRADE
+                                                       WHERE TO_CHAR(REQ_DATE, 'YYYYMMDD') 
+                                                         	BETWEEN TO_CHAR(TRUNC(SYSDATE,'MM'),'YYYYMMDD') AND LAST_DAY(SYSDATE)
+                                                         AND TRADE_STATE = 'ST06'
+                                                         AND REQ_FRAN = #{franId}
+                                                       GROUP BY BUYERPROD_ID
+                                                     ) A
+                                             )B
+                                       GROUP BY BUYERPROD_ID
+                                       ORDER BY BUYERPROD_ID                       
+                                     ) F ON (E.BUYERPROD_ID = F.BUYERPROD_ID)
+                     LEFT OUTER JOIN (SELECT BUYERPROD_ID, SUM(RESP_QTY) AS MON_FRANOUT_QTY
+                                        FROM (
+                                             SELECT A.*
+                                               FROM (
+                                                    SELECT BUYERPROD_ID, SUM(RESP_QTY) AS RESP_QTY
+                                                      FROM TRADE
+                                                     WHERE TO_CHAR(REQ_DATE, 'YYYYMMDD') 
+                                                     	   BETWEEN TO_CHAR(TRUNC(SYSDATE,'MM'),'YYYYMMDD') AND LAST_DAY(SYSDATE)
+                                                       AND TRADE_STATE = 'ST06'
+                                                       AND RESP_FRAN = #{franId}
+                                                     GROUP BY BUYERPROD_ID
+                                                     UNION ALL
+                                                    SELECT BUYERPROD_ID, SUM(MORDER_QTY) AS MORDER_QTY
+                                                      FROM MORDER A LEFT OUTER JOIN MATERIAL B ON(A.MENU_ID = B.MENU_ID)
+                                                     WHERE TO_CHAR(MORDER_DATE, 'YYYYMMDD') 
+                                                     	   BETWEEN TO_CHAR(TRUNC(SYSDATE,'MM'),'YYYYMMDD') AND LAST_DAY(SYSDATE)
+                                                       AND FRAN_ID = #{franId}
+                                                     GROUP BY BUYERPROD_ID
+                                                     ORDER BY BUYERPROD_ID
+                                                  ) A
+                                             )B
+                                       GROUP BY BUYERPROD_ID
+                                       ORDER BY BUYERPROD_ID
+                                       ) G ON(C.BUYERPROD_ID = G.BUYERPROD_ID)                 
+ <include refid="searchFrag" />
+ ORDER BY BUYERPROD_ID
+
+</select>
+
+<update id="updateFrStock" parameterType="hashMap">
+	UPDATE FRSTOCK
+	   SET FRSTOCK_QTY = #{frStockQty, jdbcType=NUMERIC} 
+	 WHERE BUYERPROD_ID = #{buyerProdId, jdbcType=VARCHAR}
+	   AND FRAN_ID = #{franId, jdbcType=VARCHAR}
+</update>
+
+
+
+</mapper>
+
+

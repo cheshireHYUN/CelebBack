@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.bill">
+
+<select id="BillList" resultType="BillVO">
+	select bill_no, fran_id, bill_cost, bill_date
+	from bill
+	where fran_id = #{franId}
+	and bill_date = TO_DATE(#{selectedDate},'yyyy/mm/dd')
+</select>
+
+<insert id="BillCreate">
+insert into bill(bill_no, fran_id, bill_cost, bill_date) values (BILL_ID_SEQ.NEXTVAL,#{franId},#{billCost},TO_DATE(#{selectedDate},'yyyy/mm/dd'))
+</insert>
+
+<update id="BillUpdate">
+update bill set bill_cost = #{billCost}
+where bill_no = #{billNo}
+</update>
+
+<select id="BillChartList" parameterType="BillVO" resultType="BillVO">
+	SELECT DISTINCT 
+        NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='01'),0) AS MONTH1
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='02'),0) AS MONTH2
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='03'),0) AS MONTH3
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='04'),0) AS MONTH4
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='05'),0) AS MONTH5
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='06'),0) AS MONTH6
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='07'),0) AS MONTH7
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='08'),0) AS MONTH8
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='09'),0) AS MONTH9         
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='10'),0) AS MONTH10         
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='11'),0) AS MONTH11        
+        ,NVL((SELECT BILL_COST
+           FROM BILL
+          WHERE FRAN_ID = #{franId}
+            AND SUBSTR(TO_CHAR(BILL_DATE,'YYYYMMDD'),5,2)='12'),0) AS MONTH12        
+    FROM BILL  
+
+</select>
+
+
+</mapper>

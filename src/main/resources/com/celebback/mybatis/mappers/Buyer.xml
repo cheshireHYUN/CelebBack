@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.buyerinfo.dao.BuyerInfoDAO">
+
+<!-- 검색 조건용 -->
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.buyerName)">
+				     INSTR(BUYER_NAME, #{detailCondition.buyerName}) > 0
+			</if>
+		</trim>
+</sql>
+
+<!-- 거래처 전체 조회 -->
+<select id="selectBuyerList" parameterType="PagingVO" resultType="BuyerVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+  FROM (
+        SELECT BUYER_ID, BUYER_NAME, BUYER_TEL, BUYER_ADD, BUYER_CHARGER, BUYER_MAIL
+          FROM BUYER
+          <include refid="searchFrag" />
+         ORDER BY BUYER_NAME
+        ) A
+    ) B
+    <![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+</select>
+
+
+<!-- 페이징 처리를 위한 레코드 수 조회 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	FROM BUYER
+	<include refid="searchFrag" />
+</select>
+
+<update id="updateBuyerList">
+	UPDATE BUYER
+	SET
+	${column} = #{modifyValue}
+	WHERE BUYER_ID= #{buyerId}
+</update>
+
+
+</mapper>

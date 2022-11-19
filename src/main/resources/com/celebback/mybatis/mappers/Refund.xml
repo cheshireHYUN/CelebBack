@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.member.refund.dao.RefundDAO">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 9. ?.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+
+<!-- 선결제 여부, 쿠폰 사용 여부 조회 -->
+<select id="selectPayDetail" parameterType="String" resultType="RefundVO">
+	SELECT MYCPN_ID
+	      ,(SELECT PAYALL_YN 
+	      	  FROM RESV
+  			 WHERE SUBSTR(RESV_ID,3) = SUBSTR(A.MORDER_ID,3)) AS PAYALL_YN
+	  FROM PAY A
+	 WHERE PAY_PG = #{payPg}
+</select>
+
+<!-- 예약상태 변경 -->
+<update id="updateReserve" parameterType="String">
+	UPDATE resv
+       SET
+           RESV_STATE='ST14'
+	 WHERE
+    	   SUBSTR(RESV_ID,3) =  SUBSTR(#{morderId},3)
+</update>
+
+<!-- 쿠폰 사용 상태 변경 -->
+<update id="updateMyCpn" parameterType="String">
+	UPDATE mycpn
+	   SET
+	       mycpn_use = 'N'
+	 WHERE
+	   	   mycpn_id = #{mycpnId} 
+</update>
+
+<!-- 환불 정보 등록 -->
+<update id="insertRefund" parameterType="RefundVO">
+	<selectKey resultType="String" keyProperty="morderId" order="BEFORE">
+		SELECT MORDER_ID
+          FROM PAY
+         WHERE PAY_PG = #{payPg}
+	</selectKey>
+	INSERT INTO refund (
+	    MORDER_ID,
+	    REFUND_DATE,
+	    REFUND_STATE
+	) VALUES (
+		#{morderId}
+		,SYSDATE
+		,'ST04'
+	)
+</update>
+
+</mapper>

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.frorder.dao.HeadFrOrderDAO">
+
+<!-- 검색 조건용 -->
+<sql id="searchFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.franName)">
+				     INSTR(FRAN_NAME, #{detailCondition.franName}) > 0
+			</if>
+		</trim>
+</sql>
+<!-- 배송준비중 검색창 통해 모아보는 용도 -->
+<sql id="readyFrag">
+		<trim prefix="AND">
+			<if test="detailCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.frOrderState)">
+				     INSTR(FRORDER_STATE, #{detailCondition.frOrderState}) > 0
+			</if>
+		</trim>
+</sql>
+
+<!-- 가맹점 주문 목록 조회 -->
+<select id="selectOrderList" parameterType="PagingVO" resultType="FrOrderVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+  FROM (
+		SELECT A.FRORDER_NO, B.FRAN_NAME, B.FRAN_ADD1, B.FRAN_ADD2, 
+			   TO_CHAR((A.FRORDER_DATE), 'YYYY-MM-DD') AS FRORDER_DATE,
+		       <![CDATA[TO_CHAR((A.FRORDER_PRICE), '999,999,999')]]> AS FRORDER_PRICE,
+		       C.LGU_NAME
+		  FROM FRORDER A, FRAN B, LGU C
+		 WHERE A.FRAN_ID = B.FRAN_ID
+		   AND A.FRORDER_STATE = C.LGU_ID
+		 <include refid="searchFrag" />
+		 <include refid="readyFrag" />
+		 ORDER BY FRORDER_NO DESC
+	 	) A
+	) B 
+    <![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+</select>
+
+<!-- 페이징 처리를 위한 레코드 수 조회 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+SELECT COUNT(*)
+FROM (
+	SELECT A.FRORDER_NO, B.FRAN_NAME, B.FRAN_ADD1, B.FRAN_ADD2, 
+	       A.FRORDER_DATE, A.FRORDER_PRICE
+	 FROM FRORDER A, FRAN B
+	 WHERE A.FRAN_ID = B.FRAN_ID
+	 	 <include refid="searchFrag" />
+		 <include refid="readyFrag" />
+	 )
+</select>
+
+<!-- 주문내역 상세조회 -->
+<select id="selectOrderDetail" parameterType="string" resultType="FrOrderVO">
+SELECT DISTINCT B.DTORDER_NAME, B.DTORDER_QTY, 
+       C.HEADIN_RELEASE AS DTORDER_PRICE,
+       B.DTORDER_PRICE AS QTY_PRICE
+  FROM FRORDER A, DTORDER B, HEADIN C
+ WHERE A.FRORDER_NO = B.FRORDER_NO
+   AND B.BUYERPROD_ID = C.BUYERPROD_ID
+   AND A.FRORDER_NO = #{frOrderNo}
+</select>
+
+<!-- 여기부터 출고 로직 -->
+
+<!-- HEADOUT TLB에 출고건 일괄적으로 INSERT -->
+<insert id="createHeadout">
+INSERT INTO HEADOUT(FRORDER_NO, BUYERPROD_ID, HEADOUT_QTY, HEADOUT_DATE)
+SELECT A.FRORDER_NO, B.BUYERPROD_ID, B.DTORDER_QTY, sysdate as TODAY
+  FROM FRORDER A, DTORDER B
+ WHERE A.FRORDER_NO = B.FRORDER_NO  
+   AND A.FRORDER_STATE = 'ST09'
+</insert>
+
+<!-- HSTOCK TBL에서 출고건의 재고 차감 -->
+<update id="updateHstock">
+MERGE INTO HSTOCK A
+USING HSTOCKVIEW2 B
+   ON (A.BUYERPROD_ID = B.BUYERPROD_ID)
+ WHEN MATCHED THEN
+      UPDATE SET A.HSTOCK_QTY = A.HSTOCK_QTY - B.TOTAL
+</update>
+
+<!-- 배송상태 UPDATE -->
+<update id="updateShipStatus">
+UPDATE FRORDER
+   SET FRORDER_STATE = 'ST10'
+ WHERE FRORDER_STATE = 'ST09' 
+</update>
+
+<!-- 배송상태 '배송준비중'인 것만 count -->
+<select id="selectST09Count" resultType="int">
+SELECT COUNT(*)
+  FROM FRORDER
+ WHERE FRORDER_STATE = 'ST09'
+</select>
+
+<!-- 대시보드용 가맹점 최근 주문건 5건 리스트 -->
+<select id="selectOrderListDashboard" resultType="FrOrderVO">
+SELECT B.* 
+  FROM
+( SELECT ROWNUM RNUM, A.*
+  FROM (
+		SELECT A.FRORDER_NO, B.FRAN_NAME, B.FRAN_ADD1, B.FRAN_ADD2, A.FRORDER_DATE, 
+		       <![CDATA[TO_CHAR((A.FRORDER_PRICE), '999,999,999')]]> AS FRORDER_PRICE,
+		       C.LGU_NAME
+		  FROM FRORDER A, FRAN B, LGU C
+		 WHERE A.FRAN_ID = B.FRAN_ID
+		   AND A.FRORDER_STATE = C.LGU_ID
+           AND C.LGU_ID = 'ST09'
+		 ORDER BY FRORDER_DATE DESC
+	 	) A
+	) B 
+	<![CDATA[
+    WHERE RNUM >=1 AND RNUM <=5
+    ]]>
+</select>
+
+</mapper>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일        수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2022. 8. 19.       황단비     최초작성               -->
+<!--  Copyright (c) 2022 by DDIT All right reserved -->
+<mapper namespace="com.celebback.fr.main.dao.FrMainDAO">
+
+<resultMap type="EduSchVO" id="eduMap" autoMapping="true">
+	<id property="eduSn" column="EDU_SN"/>
+	<collection property="chkFail" javaType="java.util.List" ofType="ChkFailVO" />
+</resultMap>
+
+<resultMap type="ResvVO" id="resvMap" autoMapping="true">
+	<id property="resvId" column="RESV_ID"/> 
+	<association property="mem" javaType="MemVO2" autoMapping="true"></association>
+</resultMap>
+
+<!-- 교육알림 조회 -->
+<select id="selectEduList" parameterType="String" resultMap="eduMap">
+	SELECT A.EDU_SN			,A.EDU_ID		,EDU_TC
+	 	  ,EDU_DATE			,EDU_LOCA		,EDU_FRAN
+	 	  ,B.CHKFAIL_YN
+	      ,(SELECT OWNER_ID FROM FRAN C WHERE C.FRAN_ID = EDU_FRAN) AS OWNER_ID
+	  FROM EDUSCH A LEFT OUTER JOIN CHKFAIL B ON(B.EDU_SN = A.EDU_SN)
+	 WHERE (SELECT OWNER_ID 
+	  		  FROM FRAN C
+	  		 WHERE C.FRAN_ID = EDU_FRAN) = #{authName}
+	   AND EDU_DATE BETWEEN SYSDATE AND SYSDATE+365
+	 ORDER BY EDU_SN ASC
+</select>
+
+<!-- 금일 트레이딩 조회 -->
+<select id="selectTodayTradeList" parameterType="String" resultType="TradeVO">
+	SELECT TRADE_NO			,B.OWNER_ID			,REQ_QTY
+		   ,RESP_QTY		,TRADE_NOTE
+		   ,TO_CHAR(REQ_DATE,'YYYY-MM-DD') AS REQ_DATE
+	       ,(SELECT LGU_NAME  FROM LGU  WHERE LGU_ID       = TRADE_STATE)  AS TRADE_STATE
+	       ,(SELECT LGU_NAME  FROM LGU  WHERE BUYERPROD_ID = LGU_ID) AS BUYERPROD_ID
+	       ,(SELECT FRAN_NAME FROM FRAN WHERE REQ_FRAN     = FRAN_ID)  AS REQ_FRAN
+	       ,(SELECT FRAN_NAME FROM FRAN WHERE RESP_FRAN    = FRAN_ID) AS RESP_FRAN
+	  FROM TRADE A LEFT OUTER JOIN FRAN B ON(B.FRAN_ID = A.RESP_FRAN)
+	 WHERE B.OWNER_ID=#{authName}
+<!--        AND TRADE_STATE = 'ST05' -->
+	   AND TO_CHAR(REQ_DATE,'YYYYMMDD') = TO_CHAR(SYSDATE,'YYYYMMDD')
+     ORDER BY TRADE_STATE DESC
+</select>
+
+<!-- 금일 예약 현황 조회 -->
+<select id="selectDayResvList" parameterType="String" resultMap="resvMap">
+	 SELECT  RESV_ID			,SIT_ID			,FRAN_ID
+	 		,RESV_PCNT			,RESV_TIME		,PAYALL_YN
+	        ,B.MEM_NAME			,B.MEM_TEL
+	        ,TO_CHAR(RESV_DATE,'YYYY-MM-DD') AS RESV_DATE
+	        ,(SELECT LGU_NAME FROM LGU C WHERE A.RESV_STATE = C.LGU_ID) AS RESV_STATE
+	  FROM RESV A INNER JOIN MEM B ON(B.MEM_ID=A.MEM_ID)
+	 WHERE (SELECT OWNER_ID FROM FRAN D WHERE D.FRAN_ID=A.FRAN_ID) = #{ownerId}
+	   AND RESV_STATE = 'ST13'
+       AND TO_CHAR(RESV_DATE,'YYYYMMDD')= TO_CHAR(SYSDATE,'YYYYMMDD')
+<!--	   금주
+	   AND TO_NUMBER(TO_CHAR(RESV_DATE, 'YYYYMMDD')) 
+	  			BETWEEN
+	  	   TO_NUMBER(TO_CHAR(SYSDATE, 'yyyymmdd'))
+	        	AND
+ 	       (SELECT  TO_NUMBER((TO_CHAR(TRUNC(SYSDATE,'IW') +6,'yyyymmdd'))) FROM DUAL)  -->
+	 ORDER BY RESV_DATE ASC
+</select>
+
+<select id="selectFranName" parameterType="String" resultType="String">
+	SELECT FRAN_NAME
+	FROM FRAN
+	WHERE OWNER_ID = #{ownerId}
+</select>
+
+</mapper>

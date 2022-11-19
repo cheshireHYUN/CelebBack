@@ -1,0 +1,165 @@
+.ui-widget-header p, .ui-widget-content p { margin: 0; }
+
+#snaptarget { 
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	width: 25%;
+	height: 400px;
+}
+
+body {
+	display: flex; 
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+
+.box{
+	display: flex; 
+	justify-content: center;
+	align-items: center;
+	flex-direction: row;
+	margin: 0px 15px 15px 15px; 
+}
+
+.setting{
+	width: 200px;
+	height: 450px;
+	border: 1px solid #D7DAE3;
+	display: flex; 
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+	margin-right:15px; 
+} 
+.s{
+	width: 100%;
+	height: 25%;
+	border: 1px solid #D7DAE3;
+	display: flex; 
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+}
+
+.target {
+	position: relative;
+	width: 570px;
+	height: 450px;
+	border: 1px solid #F1F1F1;
+	background: #F1F1F1;
+	border-radius:20px;
+	color: #333333;
+	font-weight: bold;
+}
+
+
+.btnDiv {
+	width: 87%;
+	position: relative; 
+	display: flex; 
+	flex-direction: row-reverse;
+}
+
+
+.draggable ui-widget-content {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 90%; 
+	height: 100%;
+	position: relative;
+}
+
+.t2 {
+	z-index:1000;
+	width: 80px;
+	height: 60px;
+	position: absolute;
+}
+.t4 { 
+	z-index:1000;
+	width: 110px;
+	height: 60px;
+	position: absolute;
+}
+.t8 {
+	z-index:1000;
+	height: 90px;
+	width: 180px;
+	position: absolute;
+}
+
+.t2_t {
+	z-index:1000;
+	height: 80px;
+	width: 60px;
+	position: absolute;
+}
+.t4_t { 
+	z-index:1000;
+	height: 110px;
+	width: 60px;
+	position: absolute;
+}
+.t8_t {
+	z-index:1000;
+	width: 90px;
+	height: 180px;
+	position: absolute;
+}
+
+
+
+
+#door {
+	position: absolute;
+	width: 200px;
+	height: 20px;
+	border: 1px solid #dddddd;
+	background: #C8C8C8;
+	color: #333333;
+	font-weight: bold;
+	text-align : center;
+	z-index:1000;
+	border-radius: 5px;
+}
+.door {
+	position: absolute;
+	width: 200px;
+	height: 20px;
+	border: 1px solid #dddddd;
+	background: #C8C8C8;
+	color: #333333;
+	font-weight: bold;
+	text-align : center;
+	z-index:1000;
+	border-radius: 5px; 
+}
+.door_t {
+	position: absolute;
+	width: 20px;
+	height: 200px;
+	border: 1px solid #dddddd;
+	background: #C8C8C8;
+	color: #333333;
+	font-weight: bold;
+	text-align : center;
+	z-index:1000;
+	border-radius: 5px;
+}
+.ui-draggable {
+	cursor: move;
+}
+ 
+
+.ui-widget-content {
+	border: 1px solid #dddddd;
+	background: #ffffff;
+	color: #333333;
+}
+
+

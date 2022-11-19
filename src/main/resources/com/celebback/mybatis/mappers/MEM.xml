@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.member.login.dao.MemberDAO">
+
+	<resultMap type="com.celebback.vo.UserVO" id="userMap" autoMapping="true">
+		<id property="userId" column="USERID"/>
+		<result property="userPw" column="MEM_PW" />
+		<collection property="userRoles" ofType="string">	
+			<result column="AUTHORITY"/>
+		</collection>
+		
+		<discriminator javaType="string" column="authority">
+			<case value="ROLE_ADMIN" resultType="com.celebback.vo.AdminVO">
+				<result property="adminId" column="USERID"/>
+				<result property="adminPw" column="MEM_PW"/>
+				<result property="authCode" column="AUTH_CODE"/>
+			</case>
+			<case value="ROLE_FR" resultType="com.celebback.vo.OwnerVO">
+				<result property="ownerId" column="USERID"/>
+				<result property="ownerName" column="OWNER_NAME"/>
+				<result property="ownerPass" column="MEM_PW"/>
+				<result property="ownerTel" column="OWNER_TEL"/>
+				<result property="ownerBirth" column="OWNER_BIRTH"/>
+				<result property="ownerPedu" column="OWNER_PEDU"/>
+				<result property="ownerZip" column="OWNER_ZIP"/>			
+				<result property="ownerAdd1" column="OWNER_ADD1"/>			
+				<result property="ownerAdd2" column="OWNER_ADD2"/>			
+				<result property="consultSn" column="CONSULT_SN"/>			
+			</case>
+			<case value="ROLE_USER" resultType="com.celebback.vo.MemVO2">
+				<result property="memId" column="USERID"/>
+				<result property="memPw" column="MEM_PW"/>
+				<result property="memName" column="MEM_NAME"/>
+				<result property="memBir" column="MEM_BIR"/>
+				<result property="memTel" column="MEM_TEL"/>
+				<result property="memMail" column="MEM_MAIL"/>
+				<result property="memStpcnt" column="MEM_STPCNT"/>			
+				<result property="memRvcnt" column="MEM_RVCNT"/>			
+				<result property="memGrade" column="MEM_GRADE"/>			
+			</case>
+		</discriminator>
+	</resultMap>
+
+	<select id="selectMember" parameterType="string" resultMap="userMap">
+        SELECT * FROM (SELECT * FROM USERVIEW
+        )
+        WHERE USERID = #{userId}
+	</select>
+	
+	<insert id="insertMember" parameterType="MemVO2">
+		INSERT INTO MEM (                                                                 
+			MEM_ID
+			,MEM_PW
+			,MEM_NAME
+			,MEM_BIR
+			,MEM_TEL
+			,MEM_MAIL
+
+		) VALUES (                                                                       
+			 #{memId,jdbcType=VARCHAR}
+			, #{memPw,jdbcType=VARCHAR}
+			, #{memName,jdbcType=VARCHAR}
+			, TO_DATE(#{memBir,jdbcType=DATE}, 'YYYY-MM-DD')
+			, #{memTel,jdbcType=VARCHAR}
+			, #{memMail,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<insert id="insertMemberUserRole" parameterType="MemVO2">
+		INSERT INTO USER_ROLES (
+		    USER_ID,
+		    AUTHORITY,
+		    USER_PW
+		) VALUES (
+		    #{memId,jdbcType=VARCHAR}
+		    , 'ROLE_USER'
+		    , #{memPw,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	
+<!-- 		SELECT MEM_ID, MEM_PW, AUTHORITY
+		FROM USER_ROLES
+		WHERE MEM_ID = #{memId} -->
+
+
+</mapper>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN" "http://tiles.apache.org/dtds/tiles-config_3_0.dtd" >
+<tiles-definitions>
+  <definition name="memberMain" template="/WEB-INF/jsp/index_tiles.jsp">
+    <put-attribute name="title" value="CelebBack Steak House" />
+    <put-attribute name="preScript" value="/includee/member/preScript.jsp" />
+    <put-attribute name="headerMenu" value="/includee/member/headerMenu.jsp" />
+    <put-attribute name="postScript" value="/includee/member/postScript.jsp" />
+  </definition>
+  
+  <definition name="headMain" template="/WEB-INF/jsp/head_tiles.jsp">
+    <put-attribute name="title" value="관리자" />
+    <put-attribute name="preScript" value="/includee/head/preScript.jsp" />
+    <put-attribute name="headerMenu" value="/includee/head/headerMenu.jsp" />
+    <put-attribute name="leftMenu" value="/includee/head/leftMenu.jsp" />
+    <put-attribute name="postScript" value="/includee/head/postScript.jsp" />
+  </definition>
+  
+  <definition name="frMain" template="/WEB-INF/jsp/head_tiles.jsp">
+    <put-attribute name="title" value="가맹점 관리자" />
+    <put-attribute name="preScript" value="/includee/fr/preScript.jsp" />
+    <put-attribute name="headerMenu" value="/includee/fr/headerMenu.jsp" />
+    <put-attribute name="leftMenu" value="/includee/fr/leftMenu.jsp" />
+    <put-attribute name="postScript" value="/includee/fr/postScript.jsp" />
+  </definition>
+ 
+  
+  <definition name="index" extends="memberMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/index.jsp" />
+  </definition>
+  
+  <definition name="head" extends="headMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/head.jsp" />
+  </definition>
+  
+  <definition name="fr" extends="frMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/fr.jsp" />
+  </definition>
+  
+  <definition name="head/*/*" extends="headMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/head/{1}/{2}.jsp" />
+  </definition>
+  
+  <definition name="fr/*/*" extends="frMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/fr/{1}/{2}.jsp" />
+  </definition>
+  
+  <definition name="fr/*/*/*" extends="frMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/fr/{1}/{2}/{3}.jsp" />
+  </definition>
+  
+  <definition name="fr2/*/*/*" extends="frMain2">
+  	<put-attribute name="body" value="/WEB-INF/jsp/fr/{1}/{2}/{3}.jsp" />
+  </definition>
+  
+   <definition name="member/*/*" extends="memberMain">
+  	<put-attribute name="body" value="/WEB-INF/jsp/member/{1}/{2}.jsp" />
+  </definition>
+  
+ <!-- 타일즈 제외설정 --> 
+    <definition name="empty" template="/WEB-INF/jsp/empty_tiles.jsp">
+   </definition>
+   
+    <definition name="*/*.empty" extends="empty">
+   		<put-attribute name="content" value="/WEB-INF/jsp/fr/info/seat/{1}/{2}.jsp"/>
+   </definition>
+   
+</tiles-definitions>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

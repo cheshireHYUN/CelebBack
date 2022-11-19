@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.material">
+
+
+<insert id="create">
+	INSERT INTO MATERIAL(MENU_ID, BUYERPROD_ID, MATERIAL_CNT)
+	VALUES(
+	#{menuId},
+	#{buyerprodId},
+	1
+	)
+</insert>
+
+
+<delete id="delete">
+	DELETE FROM MATERIAL WHERE MENU_ID = #{menuId}
+</delete>
+
+
+</mapper>

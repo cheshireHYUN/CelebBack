@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.frInfo">
+
+
+<select id="menuList" resultType="FrMenuVO">
+	SELECT menu_name,menu_id FROM menu WHERE menu_name NOT IN (select b.menu_name
+	from franmenu a
+	inner join menu b
+	on a.menu_id = b.menu_id
+	where fran_id=#{franId})
+
+</select>
+
+<select id="frMenuList" resultType="MenuVO">
+select a.menu_id, a.menu_name, a.menu_price, a.menu_text, a.menu_type, B.THUMB_IMG as menu_thumb_img
+from (select a.menu_id, a.menu_name, a.menu_price, a.menu_text, a.menu_type
+	from menu a  
+	inner join franmenu b
+	on a.menu_id = b.menu_id
+	and b.fran_id =#{franId}) a
+inner join attatch b
+on(a.menu_id = b.table_pk)
+</select>
+
+<delete id="frMenuDelete">
+	delete franmenu where fran_id=#{franId}
+</delete>
+
+<insert id="frMenuInsert">
+	insert into franmenu(fran_id, menu_id) values (#{franId},#{menuId})
+</insert>
+
+
+
+
+<select id="sitList" resultType="SitVO">
+	select *
+	from sit
+	where fran_id= #{franId}
+</select>
+
+<delete id="sitDelete">
+	delete from sit where fran_id=#{franId}
+</delete>
+
+<insert id="sitInsert">
+	insert into sit(fran_id, sit_id, sit_x, sit_y, direc) values (#{franId},#{sitId},#{sitX},#{sitY},#{direc})
+</insert>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</mapper>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.coupon.dao.CouponDAO">
+<resultMap type="CpnVO" id="cpnMap" autoMapping="true">
+	<id property="cpnId" column="CPN_ID"/>
+	<association property="attatch" javaType="AttatchVO" autoMapping="true"></association>
+	<collection property="myCpn" javaType="java.util.List" ofType="MyCpnVO" autoMapping="true"></collection>
+</resultMap>
+
+
+<sql id="searchFrag">
+	WHERE 1=1
+		<trim prefix="AND">
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				       <choose>
+				       		<when test="simpleCondition.searchType eq 'cpnName'">
+				       			INSTR(CPN_NAME,#{simpleCondition.searchWord}) > 0 <!-- JAVA의 indexOf와 같음 --><!-- LIKE는 퍼포먼스가 떨어짐 --> 
+				       			<!-- #{} : 인라인파라미터 -->
+				       		</when><!-- case -->
+				       		<when test="simpleCondition.searchType eq 'cpnContent'">
+				       			INSTR(CPN_CONTENT,#{simpleCondition.searchWord}) > 0 
+				       		</when><!-- case -->
+				       		<otherwise>
+				       			 INSTR(CPN_NAME,#{simpleCondition.searchWord}) > 0
+					       			  OR
+					       			  INSTR(CPN_CONTENT,#{simpleCondition.searchWord}) > 0
+				       		</otherwise><!-- default -->
+				       </choose>
+			</if>
+		</trim>
+</sql>
+
+
+<!-- 쿠폰 전체 조회 -->
+<select id="selectCpnList" parameterType="PagingVO" resultType="CpnVO">
+	SELECT *
+	  FROM (
+		SELECT ROWNUM RNUM, A.*
+		  FROM(
+              SELECT CPN_ID			,CPN_NAME		,CPN_CONTENT
+              		,CPN_LGU 		,TABLE_NAME
+              		,TO_CHAR(CPN_DATE,'YYYY.MM.DD') AS CPN_DATE
+	            FROM CPN
+	            <include refid="searchFrag"/>
+	          )A
+	       )
+	  WHERE RNUM BETWEEN #{startRow} AND #{endRow}
+</select>
+
+<!-- 쿠폰 페이징 -->
+<select id="selectTotalRecord" parameterType="PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM CPN
+	  <include refid="searchFrag"/>
+</select>
+
+<!-- 쿠폰 상세조회 -->
+<select id="selectCpn" parameterType="String" resultMap="cpnMap">
+	SELECT CPN_ID			,CPN_NAME			,CPN_CONTENT
+          ,CPN_LGU 			,A.TABLE_NAME
+          ,TO_CHAR(CPN_DATE,'YYYY.MM.DD') AS CPN_DATE
+          ,B.ATTATCH_SAVENAME
+	 FROM CPN A LEFT OUTER JOIN ATTATCH B ON (A.CPN_LGU = B.TABLE_PK)
+	WHERE CPN_ID = #{cpnId}
+</select>
+
+<!-- 쿠폰 수정 -->
+<update id="updateCpn" parameterType="CpnVO">
+	UPDATE CPN
+       SET
+	     CPN_NAME = #{cpnName}
+	    ,CPN_CONTENT = #{cpnContent}
+	    ,CPN_DATE =#{cpnDate}
+	 WHERE
+	    CPN_ID =#{cpnId}
+</update>
+
+<!-- 쿠폰 종류 단순 조회 -->
+<select id="selectCpnLgu" resultType="hashMap">
+	SELECT LGU_ID "lguId", LGU_NAME "lguName"
+      FROM LGU
+     WHERE LGU_HIGH='CP'
+</select>
+
+<!-- 메뉴 종류 단순 조회 -->
+<select id="selectMenuLgu" resultType="hashMap">
+	SELECT MENU_ID "menuId", MENU_NAME "menuName"
+      FROM MENU
+</select>
+
+<!-- 쿠폰 등록 -->
+<insert id="insertCpn" parameterType="CpnVO">
+<selectKey resultType="String" keyProperty="cpnId" order="BEFORE">
+		SELECT 'CP101'||LPAD(CPN_ID_101_SEQ.NEXTVAL, 5, '0') FROM DUAL
+	</selectKey>
+	INSERT INTO cpn (
+	    CPN_ID,
+	    CPN_NAME,
+	    CPN_CONTENT,
+	    CPN_DATE,
+	    CPN_LGU,
+        MENU_ID
+	) VALUES (
+		 #{cpnId}
+		,#{cpnName}
+		,#{cpnContent}
+		,#{cpnDate}
+		,#{cpnLgu}
+		,#{menuId}
+	)
+</insert>
+
+<!-- 쿠폰 첨부파일 저장 -->
+<insert id="insertAttatch" parameterType="CpnVO">
+		<selectKey resultType="int" keyProperty="startAttatchNo" order="BEFORE">
+			SELECT NVL(MAX(ATTATCH_NO), 0) + 1
+			FROM ATTATCH
+		</selectKey>
+		MERGE
+		 INTO ATTATCH
+		USING DUAL
+		   ON (TABLE_PK=#{cpnLgu})
+		WHEN MATCHED THEN
+		    UPDATE 
+		       SET 
+	             ATTATCH_ORGNAME =#{attatch.attatchOrgname}
+	            ,ATTATCH_SAVENAME =#{attatch.attatchSavename}
+	            ,ATTATCH_MIME =#{attatch.attatchMime}
+	            ,ATTATCH_SIZE =#{attatch.attatchSize}
+		WHEN NOT MATCHED THEN
+		    INSERT (
+			    ATTATCH_ORGNAME,
+			    ATTATCH_SAVENAME,
+			    ATTATCH_MIME,
+			    ATTATCH_SIZE,
+			    TABLE_NAME,
+			    TABLE_PK,
+			    ATTATCH_NO
+		    )
+		     VALUES(
+		     	  #{attatch.attatchOrgname,jdbcType=VARCHAR}
+				, #{attatch.attatchSavename,jdbcType=VARCHAR}
+				, #{attatch.attatchMime,jdbcType=VARCHAR}
+				, #{attatch.attatchSize,jdbcType=NUMERIC}
+				, 'CPN'
+				, #{cpnLgu,jdbcType=VARCHAR}
+				, #{startAttatchNo}
+		     )
+</insert>
+
+<!-- 쿠폰 삭제 -->
+<delete id="deleteCpn" parameterType="String">
+	DELETE 
+	  FROM CPN
+	 WHERE CPN_ID =#{cpnId}
+</delete>
+
+<!-- 쿠폰 발송 -->
+<insert id="sendCpn" parameterType="CpnVO">
+	INSERT ALL
+		<foreach collection="memIdList" item="memId" index="idx">
+			INTO MYCPN (
+			    MYCPN_ID
+			    ,CPN_ID
+			    ,MEM_ID
+			    ,MYCPN_ENDATE
+			) VALUES (
+				(select NVL(MAX(TO_NUMBER(MYCPN_ID))+1,1)+#{idx} from mycpn)
+				,#{cpnId}
+				,#{memId}
+				,(select to_char(add_months(sysdate, 12), 'YYYY-MM-DD')
+  					from dual)
+			)
+		</foreach>
+		SELECT * FROM DUAL
+</insert>
+
+<select id="selectMemId" resultType="hashmap">
+	SELECT MEM_ID "memId", mem_name "memName"
+	  FROM MEM
+</select>
+</mapper>

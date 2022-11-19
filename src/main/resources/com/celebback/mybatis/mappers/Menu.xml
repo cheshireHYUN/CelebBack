@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper 
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.celebback.mybatis.mappers.menu">
+
+
+
+<select id="getHStock" resultType="HStockVO">
+select a.BUYERPROD_ID, B.LGU_NAME as buyerprod_name
+from (select *
+        from hstock
+        order by BUYERPROD_ID) a
+inner join lgu b
+on a.BUYERPROD_ID = b.lgu_id
+</select>
+
+
+
+<insert id="create">
+	<selectKey resultType="String" keyProperty="menuId" order="BEFORE">
+		SELECT 'MENU'||LPAD(MENU_ID_SEQ.NEXTVAL, 3, '0') FROM DUAL
+	</selectKey>
+	INSERT INTO MENU(MENU_ID,MENU_NAME,MENU_PRICE,MENU_TEXT,MENU_DATE,MENU_TYPE)
+	VALUES(
+	#{menuId},
+	#{menuName},
+	#{menuPrice},
+	#{menuText},
+	TO_DATE(#{menuDate},'YYYY/MM/DD'),
+	#{menuType}
+	)
+</insert>
+
+<insert id="createImg">
+	<selectKey resultType="String" keyProperty="attatchNo" order="BEFORE">
+		    select max(attatch_no)+1
+    		from attatch
+	</selectKey>
+	INSERT INTO attatch(ATTATCH_ORGNAME, ATTATCH_SAVENAME, ATTATCH_MIME, ATTATCH_SIZE, TABLE_NAME, TABLE_PK, ATTATCH_NO, THUMB_IMG)
+	VALUES(
+    #{originalFilename},
+    #{menuImg},
+    'img',
+    0,
+    'MENU',
+    #{menuId},
+    #{attatchNo},
+    #{menuThumbImg}
+	)
+</insert>
+
+<select id="listAll" resultType="MenuVO">
+    select menu_id, menu_name, menu_price, menu_date, menu_text, menu_type, menu_material, thumb_img as menu_thumb_img
+     from (SELECT A.MENU_ID, A.MENU_NAME, A.MENU_PRICE, TO_CHAR(A.MENU_DATE,'YYYY/MM/DD') AS MENU_DATE,
+            A.MENU_TEXT, A.MENU_TYPE, 
+            LISTAGG(C.LGU_NAME,',  ') WITHIN GROUP (ORDER BY C.LGU_NAME) AS MENU_MATERIAL
+        FROM MENU A, MATERIAL B, LGU C
+        WHERE A.MENU_ID=B.MENU_ID AND B.BUYERPROD_ID= C.LGU_ID 
+        GROUP BY A.MENU_ID, A.MENU_NAME, A.MENU_PRICE, A.MENU_TEXT, A.MENU_TYPE, 
+                A.MENU_DATE, TO_CHAR(A.MENU_DATE,'YYYY/MM/DD')
+        ORDER BY A.menu_date DESC) a
+    inner join attatch b
+    on a.menu_id = b.table_pk
+        
+</select>
+
+<update id="update">
+	UPDATE MENU 
+	SET MENU_NAME=#{menuName}, MENU_PRICE=#{menuPrice},  MENU_DATE=TO_DATE(#{menuDate},'YYYYMMDD'), MENU_TEXT=#{menuText}, MENU_TYPE=#{menuType}
+	WHERE MENU_ID=#{menuId}
+</update>
+
+<delete id="delete">
+	DELETE FROM MENU WHERE MENU_ID = #{menuId}
+</delete>
+
+<delete id="deleteImg">
+	DELETE FROM ATTATCH WHERE TABLE_PK = #{menuId}
+</delete>
+
+<delete id="deleteFranMenu">
+	DELETE FROM FRANMENU WHERE MENU_ID = #{menuId}
+</delete>
+
+
+
+
+
+
+<!-- !!!!!메뉴 재료와 관련있는 쿼리들!!!!!!! -->
+
+<!-- 특정 메뉴의 메뉴ID를 획득해오는 쿼리 -->
+<select id="getMenuId" resultType="String">
+	SELECT MENU_ID
+	FROM MENU
+    WHERE MENU_NAME=#{menuName}
+</select>
+
+<!-- 등록한 메뉴에 대해 재료테이블 등록 -->
+<insert id="createMaterial">
+	INSERT INTO MATERIAL(MENU_ID, BUYERPROD_ID, MATERIAL_CNT)
+	VALUES(
+	#{menuId},
+	#{buyerprodId},
+	1
+	)
+</insert>
+
+<!-- 메뉴를 삭제하기전에 차일드레코드인 재료부터 삭제하자 -->
+<delete id="deleteMaterial"> 
+	DELETE FROM MATERIAL WHERE MENU_ID = #{menuId}
+</delete>
+
+
+
+
+</mapper>

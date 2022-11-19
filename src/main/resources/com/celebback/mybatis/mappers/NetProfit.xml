@@ -1,0 +1,2503 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.head.netprofit.dao.NetProfitDAO">
+
+
+<!-- 표 -->
+<select id="selectNetProfit" parameterType="string" resultType="NetProfitVO">
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE('2022'||#{month}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE('2022'||#{month}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+				
+</select>
+
+
+<!-- 차트용 -->
+<select id="selectNetProfitChart" resultType="NetProfitVO">
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{firstMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+				
+	UNION ALL
+	
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{secondMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+	
+	UNION ALL
+
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{thirdMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+	
+	UNION ALL
+	
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fourthMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+
+	UNION ALL
+	
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{fifthMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+				
+	UNION ALL
+
+SELECT SALES_REVENUE, FRORDER_PRICE, FEE_FRUSE, FEE_ROYAL, 
+       FEE_OVERDUE, BUYERPROD_PRICE, SNA, HEADEMP_SALARY,
+       FEE_CPN, DONATE_PRICE, OPERATING_PROFIT, NET_PROFIT, OPM
+  FROM 
+		(
+		SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  FROM (
+		        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+		          FROM (
+		                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+		                  FROM FRORDER A, HEADOUT B
+		                 WHERE A.FRORDER_NO = B.FRORDER_NO
+		                   AND A.FRORDER_STATE = 'ST15'
+		                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+		                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+		               )
+		    	), (
+			        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+			          FROM (
+			                SELECT FRAN_ID, FEE_FRUSE
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+		              FROM (
+			                SELECT FRAN_ID, FEE_ROYAL
+			                  FROM FEE
+			                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+			                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+		                )
+		        ), (
+		        	SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+		        	  FROM (
+					        SELECT FRAN_ID, FEE_OVERDUE
+					          FROM FEE
+					         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+					               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+		                )
+		        )
+				), (
+					SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+					  FROM (
+							SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+							  FROM FRORDER A, HEADOUT B
+							 WHERE A.FRORDER_NO = B.FRORDER_NO
+							   AND A.FRORDER_STATE = 'ST15'
+							   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>
+					       )
+				)
+				), (
+					SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+					  FROM (
+							SELECT FRAN_ID, FEE_FRUSE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				)
+				), (
+					SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+					  FROM (
+							SELECT FRAN_ID, FEE_ROYAL
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+					  FROM (
+							SELECT FRAN_ID, FEE_OVERDUE
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+					  FROM (                      
+					        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+					               A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+							  FROM HEADIN A, BUYERPROD B
+							 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+							   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				)
+				),(
+					SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+					  FROM (
+						    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+						    FROM (
+							        SELECT HEADEMP_ID, HEADEMP_SALARY
+							          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+					       SELECT FRAN_ID, FEE_CPN
+					         FROM FEE
+					        WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+					              AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				    )
+				)
+				),(
+					SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+					  FROM (
+							SELECT HEADEMP_ID, HEADEMP_SALARY
+							  FROM HEADEMP
+					)
+					),(
+					SELECT SUM(FEE_CPN) AS FEE_CPN
+					  FROM (
+							SELECT FRAN_ID, FEE_CPN
+							  FROM FEE
+							 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+					)
+					),(
+					SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+					  FROM (
+							SELECT DONATE_WHERE, DONATE_PRICE
+							  FROM DONATE
+							 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+							       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+						)
+				),(
+				SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+		  				  FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),
+				        (
+						SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+						  FROM (                      
+						        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+						                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+								  FROM HEADIN A, BUYERPROD B
+								 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+								   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+								       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+								)),(
+						SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				    )
+				))
+				
+				),(
+				SELECT OPERATING_PROFIT - DONATE_PRICE AS NET_PROFIT
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+						  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+									FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM'))]]> 
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				    )
+				))), (SELECT SUM(DONATE_PRICE) AS DONATE_PRICE
+				  FROM (
+				SELECT DONATE_WHERE, DONATE_PRICE
+				  FROM DONATE
+				 WHERE DONATE_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				))
+				),(
+				SELECT TRUNC(OPERATING_PROFIT / SALES_REVENUE , 2) AS OPM
+				  FROM (SELECT SALES_REVENUE - BUYERPROD_PRICE - SNA AS OPERATING_PROFIT
+				  FROM (SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				          FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        )),(
+				        
+				        
+		SELECT SUM(MULTIPLY) AS BUYERPROD_PRICE
+		  FROM (                      
+		        SELECT A.HEADIN_DATE, A.BUYERPROD_ID, A.HEADIN_QTY, B.BUYERPROD_PRICE AS BUYERPROD_PRICE,
+		                A.HEADIN_QTY * B.BUYERPROD_PRICE AS MULTIPLY
+				  FROM HEADIN A, BUYERPROD B
+				 WHERE A.BUYERPROD_ID = B.BUYERPROD_ID
+				   AND A.HEADIN_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				       AND LAST_DAY(TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM'))
+				)),(SELECT HEADEMP_SALARY + FEE_CPN AS SNA
+				FROM (
+				    SELECT SUM(HEADEMP_SALARY) AS HEADEMP_SALARY
+				    FROM (
+				        SELECT HEADEMP_ID, HEADEMP_SALARY
+				          FROM HEADEMP
+				    )
+				), (
+				    SELECT SUM(FEE_CPN) AS FEE_CPN
+				    FROM (
+				        SELECT FRAN_ID, FEE_CPN
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				    )
+				))),(SELECT FRORDER_PRICE + FEE_FRUSE + FEE_ROYAL + FEE_OVERDUE AS SALES_REVENUE
+				FROM (
+				        SELECT SUM(FRORDER_PRICE) AS FRORDER_PRICE
+				          FROM (
+				                SELECT DISTINCT A.FRORDER_NO, A.FRORDER_PRICE AS FRORDER_PRICE
+				                  FROM FRORDER A, HEADOUT B
+				                 WHERE A.FRORDER_NO = B.FRORDER_NO
+				                   AND A.FRORDER_STATE = 'ST15'
+				                   AND B.HEADOUT_DATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				               )
+				    ), (
+				        SELECT SUM(FEE_FRUSE) AS FEE_FRUSE
+				          FROM (
+				                SELECT FRAN_ID, FEE_FRUSE
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_ROYAL) AS FEE_ROYAL
+				          FROM (
+				                SELECT FRAN_ID, FEE_ROYAL
+				                  FROM FEE
+				                 WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				                       AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ), (SELECT SUM(FEE_OVERDUE) AS FEE_OVERDUE
+				        FROM (
+				        SELECT FRAN_ID, FEE_OVERDUE
+				          FROM FEE
+				         WHERE FEE_SDATE BETWEEN <![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]> 
+				               AND LAST_DAY(<![CDATA[TO_DATE(#{chartYear}||#{sixthMonth}, 'yyyyMM')]]>)
+				                )
+				        ))
+				)
+
+</select>
+
+</mapper>

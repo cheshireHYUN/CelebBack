@@ -1,0 +1,26 @@
+table.dataTable thead th,table.dataTable thead td{
+	padding:15px 20px; text-align:center; 
+
+	border-collapse: collapse;}
+table.dataTable tbody th,table.dataTable tbody td{
+	padding:10px 20px;
+	border-collapse: collapse;
+	border-bottom: 1px solid #f0f1f5;
+
+}
+table.dataTable thead th:first-child,table.dataTable thead td:first-child,
+table.dataTable tbody th:first-child,table.dataTable tbody td:first-child {
+    border-left: none;
+}
+
+.light.btn-success {
+border-color: #cff0d9;
+}
+
+.light.btn-danger {
+border-color:#ffc6d1;
+}
+
+.row.page-titles {
+	margin-bottom:15px;
+}

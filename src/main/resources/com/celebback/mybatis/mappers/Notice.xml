@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.board.notice.dao.NoticeDAO">
+
+	<sql id="searchFrag">
+		<trim prefix="AND">
+        	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	        	<choose>
+					<when test="simpleCondition.searchType eq 'postTitle'">
+						INSTR(POST_TITLE, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'postContent'">
+						INSTR(POST_CONTENT, #{simpleCondition.searchWord}) > 0
+					</when>			    
+					<otherwise>
+						   (INSTR(POST_TITLE, #{simpleCondition.searchWord}) > 0
+						OR INSTR(POST_CONTENT, #{simpleCondition.searchWord}) > 0)
+					</otherwise>    		
+	        	</choose>
+        	</if>
+        </trim>
+	</sql>
+
+	<sql id="searchDateFrag">
+		<where>
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchStartDate) and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchEndDate)">
+				POST_DATE BETWEEN #{simpleCondition.searchStartDate} AND (TO_DATE(#{simpleCondition.searchEndDate}) + (INTERVAL '1' DAY))
+			</if>
+		</where>
+	</sql>
+
+	<select id="selectTotalRecordForMember" parameterType="com.celebback.vo.PagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM HEADNOTICE
+		WHERE HN_RANGE = 'BD501'
+		<include refid="searchFrag" />
+	</select>
+
+	<select id="selectNoticeListForMember" parameterType="com.celebback.vo.PagingVO" resultType="com.celebback.vo.NoticeVO">
+		SELECT C.*
+		FROM (
+			SELECT B.*, ROWNUM RNUM2
+			FROM (
+				SELECT A.*, ROWNUM RNUM
+				FROM (
+					SELECT
+					    POST_NO,
+					    POST_TITLE,
+					    TO_CHAR(POST_DATE, 'YYYY-MM-DD') POST_DATE
+					FROM
+					    HEADNOTICE
+					WHERE HN_RANGE = 'BD501'
+					<include refid="searchFrag" />
+					ORDER BY TO_NUMBER(POST_NO) ASC
+				) A
+				ORDER BY RNUM DESC
+			) B
+			ORDER BY RNUM2 DESC
+		) C
+		WHERE RNUM2 BETWEEN #{startRow} AND #{endRow}
+	</select>
+	
+	
+<!-- 	<select id="selectForMemberNotice" parameterType="String" resultType="com.celebback.vo.NoticeVO"> -->
+	<resultMap id="noticeAttatchMap" type="com.celebback.vo.NoticeVO" autoMapping="true">
+		<id column="POSTNUM" property="postNo" />
+		<collection property="attatchList" ofType="AttatchVO" autoMapping="true">
+			<id property="attatchNo" column="ATTATCH_NO" />
+		</collection>
+	</resultMap>
+	<select id="selectNoticeForMember" parameterType="String" resultMap="noticeAttatchMap">	
+		SELECT
+			A.POST_NO POSTNUM,
+		    A.POST_TITLE,
+		    A.POST_CONTENT,
+		    TO_CHAR(A.POST_DATE, 'YYYY-MM-DD') POST_DATE,
+		    B.ATTATCH_ORGNAME,
+			B.ATTATCH_SAVENAME,
+			B.ATTATCH_MIME,
+			B.ATTATCH_SIZE,
+			B.TABLE_NAME,
+			B.TABLE_PK,
+			B.ATTATCH_NO
+		FROM
+		    HEADNOTICE A
+		    LEFT OUTER JOIN ATTATCH B ON (A.POST_NO = B.TABLE_PK)
+		WHERE HN_RANGE = 'BD501'
+		AND POST_NO = #{postNo}
+	</select>	
+	
+	<select id="selectTotalRecord" parameterType="com.celebback.vo.PagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM HEADNOTICE
+		<include refid="searchDateFrag" />
+		<include refid="searchFrag" />
+	</select>
+
+	<select id="selectLguList" resultType="hashMap">
+		SELECT LGU_ID "lguId", LGU_NAME "lguName"
+		FROM LGU
+		WHERE LGU_HIGH = 'BD'
+	</select>
+
+	<resultMap type="com.celebback.vo.NoticeVO" id="noticeMap" autoMapping="true">
+		<id column="POST_NO" property="postNo"/>
+		<association property="lgu" javaType="com.celebback.vo.LguVO" autoMapping="true"></association>
+	</resultMap>
+
+
+	<select id="selectNoticeList" parameterType="com.celebback.vo.PagingVO" resultMap="noticeMap">
+		SELECT E.*
+		FROM (
+			SELECT D.*, ROWNUM RNUM2
+			FROM (
+				SELECT C.*, ROWNUM RNUM
+				FROM (
+					SELECT 
+						POST_NO, 
+						POST_TITLE, 
+						TO_CHAR(A.POST_DATE, 'YYYY-MM-DD') POST_DATE, 
+						POST_WRITER, 
+						LGU_NAME
+					FROM 
+						HEADNOTICE A INNER JOIN LGU B ON(A.HN_RANGE = B.LGU_ID)
+					<include refid="searchDateFrag" />
+					<include refid="searchFrag" />
+					ORDER BY TO_NUMBER(POST_NO) ASC
+				) C
+				ORDER BY RNUM DESC
+			) D
+			ORDER BY RNUM2 DESC
+		) E
+		WHERE RNUM2 BETWEEN #{startRow} AND #{endRow}
+	</select>
+	
+	
+	<select id="selectNotice" parameterType="String" resultMap="noticeAttatchMap">
+		SELECT
+			A.POST_NO POSTNUM,
+		    A.POST_TITLE,
+		    A.HN_RANGE,
+		    A.POST_CONTENT,
+		    TO_CHAR(A.POST_DATE, 'YYYY-MM-DD') POST_DATE,
+		    A.POST_WRITER,
+		    B.ATTATCH_ORGNAME,
+			B.ATTATCH_SAVENAME,
+			B.ATTATCH_MIME,
+			B.ATTATCH_SIZE,
+			B.TABLE_NAME,
+			B.TABLE_PK,
+			B.ATTATCH_NO
+		FROM
+		    HEADNOTICE A
+		    LEFT OUTER JOIN ATTATCH B ON (A.POST_NO = B.TABLE_PK)
+		WHERE A.POST_NO = #{postNo}
+	</select>	
+
+	<insert id="insertNotice" parameterType="com.celebback.vo.NoticeVO">
+		<selectKey resultType="String" keyProperty="postNo" order="BEFORE">
+			SELECT NVL(MAX(TO_NUMBER(POST_NO)),0)+1 FROM HEADNOTICE
+		</selectKey>
+		INSERT INTO HEADNOTICE (
+		    POST_NO,
+		    POST_TITLE,
+		    POST_CONTENT,
+		    POST_WRITER,
+		    HN_RANGE
+		) VALUES (
+		    #{postNo, jdbcType=VARCHAR},
+		    #{postTitle, jdbcType=VARCHAR},
+		    #{postContent, jdbcType=CLOB},
+		    #{postWriter,jdbcType=VARCHAR},
+		    #{hnRange, jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<update id="updateNotice" parameterType="com.celebback.vo.NoticeVO">
+		UPDATE HEADNOTICE
+		SET POST_TITLE = #{postTitle, jdbcType=VARCHAR},
+			POST_CONTENT = #{postContent, jdbcType=CLOB},
+			HN_RANGE = #{hnRange, jdbcType=VARCHAR}
+		WHERE POST_NO = #{postNo}
+	</update>
+	
+	<delete id="deleteNotice" parameterType="String">
+		DELETE FROM HEADNOTICE
+		WHERE POST_NO = #{postNo}
+	</delete>
+</mapper>

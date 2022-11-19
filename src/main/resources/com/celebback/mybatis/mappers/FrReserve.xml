@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.celebback.fr.reserve.dao.ResvDAO">
+
+<!-- 예약내역검색조회 -->
+<sql id="searchFragList">
+		<where>
+			<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	   			<choose>
+					<when test="simpleCondition.searchType eq 'resvId'">
+						INSTR(RESV_ID, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'resvTime'">
+						INSTR(RESV_TIME, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'resvPcnt'">
+						INSTR(RESV_PCNT, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<when test="simpleCondition.searchType eq 'sitId'">
+						INSTR(SIT_ID, #{simpleCondition.searchWord}) > 0
+					</when>			        		
+					<otherwise>
+						INSTR(LGU_NAME, #{simpleCondition.searchWord}) > 0
+					</otherwise>    		
+	        	</choose>
+			</if>
+		</where>
+</sql>
+
+<!-- 예약내역날짜검색조회 -->
+<sql id="searchDateFrag">
+	<where>
+		<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchStartDate) and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchEndDate)">
+			<![CDATA[
+       			RESV_DATE >= #{simpleCondition.searchStartDate} AND RESV_DATE <= #{simpleCondition.searchEndDate}  
+ 			]]> 
+		</if>
+	</where>
+</sql>
+
+<!-- 오늘 예약내역 조회 -->
+<select id="selectTodayResvList" parameterType="String" resultType="ReserveVO">
+	 SELECT F.*
+	   FROM (
+		    SELECT E.*
+			  FROM (
+		    		SELECT ROWNUM RNUM, D.*
+		              FROM ( 
+		                  SELECT DISTINCT A.RESV_ID, <![CDATA[TO_CHAR((A.RESV_ACC_DATE), 'YYYY-MM-DD')]]> AS RESV_ACC_DATE,
+		                         <![CDATA[TO_CHAR((A.RESV_DATE), 'YYYY-MM-DD')]]> AS RESV_DATE, A.RESV_TIME, A.RESV_PCNT,
+		                         C.SIT_ID, B.LGU_NAME, A.RESV_NOTE
+		                    FROM RESV A LEFT OUTER JOIN LGU B ON(A.RESV_STATE = B.LGU_ID)
+		                                LEFT OUTER JOIN SIT C ON(A.SIT_ID = C.SIT_ID)
+		                   WHERE TO_CHAR(RESV_DATE, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+		                     AND A.FRAN_ID= #{franId}
+		                     AND B.LGU_NAME = '예약확정'
+	                       ORDER BY RESV_DATE DESC, RESV_TIME DESC
+		                	)D			
+			        ) E
+			ORDER BY RESV_DATE DESC, RESV_TIME DESC
+    		) F
+</select>
+
+
+
+<!-- 예약내역 조회와 페이징 -->
+<select id="selectResvList" parameterType="com.celebback.vo.PagingVO" resultType="ReserveVO">
+	 SELECT F.*
+	   FROM (
+		    SELECT E.*
+			  FROM (
+		    		SELECT ROWNUM RNUM, D.*
+		              FROM ( 
+		                  SELECT DISTINCT A.RESV_ID, <![CDATA[TO_CHAR((A.RESV_ACC_DATE), 'YYYY-MM-DD')]]> AS RESV_ACC_DATE,
+		                         <![CDATA[TO_CHAR((A.RESV_DATE), 'YYYY-MM-DD')]]> AS RESV_DATE, A.RESV_TIME, A.RESV_PCNT,
+		                         C.SIT_ID, B.LGU_NAME, A.RESV_NOTE
+		                    FROM RESV A LEFT OUTER JOIN LGU B ON(A.RESV_STATE = B.LGU_ID)
+		                                LEFT OUTER JOIN SIT C ON(A.SIT_ID = C.SIT_ID)
+		                   WHERE A.FRAN_ID= #{franId}
+		                     AND B.LGU_NAME = '예약확정'
+		                      OR B.LGU_NAME = '예약취소'
+	                      ORDER BY RESV_DATE DESC, RESV_TIME DESC
+		                	)D			
+			        ) E
+			<include refid="searchFragList"/>
+			<include refid="searchDateFrag"/>
+			ORDER BY RESV_DATE DESC, RESV_TIME DESC
+    		) F
+	<![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <=#{endRow}
+    ]]>
+</select>
+
+<!-- 예약내역 조회 cnt -->
+<select id="selecTotalRecord" parameterType="com.celebback.vo.PagingVO" resultType="int">
+	SELECT COUNT(*)
+	  FROM (
+	        SELECT A.RESV_ID, TO_CHAR((A.RESV_ACC_DATE), 'YYYY-MM-DD') AS RESV_ACC_DATE,
+			       TO_CHAR((A.RESV_DATE), 'YYYY-MM-DD') AS RESV_DATE, A.RESV_TIME, A.RESV_PCNT,
+			       C.SIT_ID, B.LGU_NAME, A.RESV_NOTE
+			  FROM RESV A LEFT OUTER JOIN LGU B ON(A.RESV_STATE = B.LGU_ID)
+			            LEFT OUTER JOIN SIT C ON(A.SIT_ID = C.SIT_ID)
+			 WHERE A.FRAN_ID= #{franId}
+			   AND B.LGU_NAME = '예약확정'
+			    OR B.LGU_NAME = '예약취소'
+	    	)
+	<include refid="searchFragList"/>
+	<include refid="searchDateFrag"/>
+     ORDER BY RESV_DATE DESC
+</select>
+
+<!-- 예약요청내역 조회 -->
+<select id="selectReqResvList" parameterType="String" resultType="ReserveVO">
+	SELECT *
+	  FROM (
+			SELECT A.RESV_ID, <![CDATA[TO_CHAR(A.RESV_ACC_DATE, 'YYYY-MM-DD')]]> AS RESV_ACC_DATE, B.LGU_NAME, 
+		           <![CDATA[TO_CHAR(A.RESV_DATE, 'YYYY-MM-DD')]]> AS RESV_DATE, A.RESV_TIME, A.RESV_PCNT,
+		           CASE WHEN A.PAYALL_YN='N' THEN '나중결제'
+		                WHEN A.PAYALL_YN='Y' THEN '선결제' END AS PAYALL_YN
+		      FROM RESV A LEFT OUTER JOIN LGU B ON(A.RESV_STATE = B.LGU_ID)
+		     WHERE B.LGU_NAME = '예약요청'
+		       AND A.FRAN_ID = #{franId}
+		       AND TO_CHAR(RESV_ACC_DATE,'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD')
+			)
+</select>
+
+<select id="selectReqResv" parameterType="ReserveVO" resultType="ReserveVO">
+	 SELECT *
+   	   FROM (
+	        SELECT A.RESV_ID, A.MENU_ID, B.MENU_NAME, A.MORDER_QTY, 
+	        	   <![CDATA[TO_CHAR((A.MORDER_PRICE), '999,999,999')]]> AS MORDER_PRICE,
+	        	   CASE WHEN C.PAYALL_YN='N' THEN '나중결제'
+                		WHEN C.PAYALL_YN='Y' THEN '선결제(완료)' END AS PAYALL_YN, C.FRAN_ID                
+	          FROM MORDER A LEFT OUTER JOIN MENU B ON(A.MENU_ID = B.MENU_ID) 
+	                        LEFT OUTER JOIN RESV C ON(A.RESV_ID = C.RESV_ID) 
+	         WHERE C.RESV_ID = #{resvId}
+	           AND C.FRAN_ID = #{franId}
+        	)
+</select>
+   
+<update id="updateAcceptResv" parameterType="ReserveVO">
+	UPDATE RESV 
+	   SET RESV_STATE = 'ST13'
+	 WHERE RESV_ID = #{resvId}
+	   AND FRAN_ID = #{franId}
+</update> 
+  
+<update id="updateRejectResv" parameterType="ReserveVO">
+	UPDATE RESV 
+	   SET RESV_STATE = 'ST14',
+	   	   RESV_NOTE = #{resvNote}
+	 WHERE RESV_ID = #{resvId}
+	   AND FRAN_ID = #{franId}
+</update>   
+   
+   
+   
+</mapper>
